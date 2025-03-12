@@ -7,6 +7,14 @@ $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 $error = '';
 $success = '';
 
+// Verificar si ya está instalado - CORREGIDO
+if (file_exists('config/config.php') && is_readable('config/config.php')) {
+    $config_content = file_get_contents('config/config.php');
+    if (strpos($config_content, 'DB_HOST') !== false && $step === 1) {
+        die('El sistema ya está instalado. Por seguridad, elimina el archivo install.php');
+    }
+}
+
 // Verificar requisitos del sistema
 function checkSystemRequirements() {
     $requirements = [
@@ -21,7 +29,8 @@ function checkSystemRequirements() {
         'writable_dirs' => [
             'cache' => is_writable('cache') || @mkdir('cache', 0777),
             'assets/uploads' => is_writable('assets/uploads') || @mkdir('assets/uploads', 0777, true),
-            'logs' => is_writable('logs') || @mkdir('logs', 0777)
+            'logs' => is_writable('logs') || @mkdir('logs', 0777),
+            'config' => is_writable('config') || @mkdir('config', 0777) // Agregado directorio config
         ]
     ];
 
@@ -49,30 +58,34 @@ function testDatabaseConnection($host, $name, $user, $pass) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     switch ($step) {
         case 2:
-            $db_host = $_POST['db_host'] ?? '';
-            $db_name = $_POST['db_name'] ?? '';
-            $db_user = $_POST['db_user'] ?? '';
+            $db_host = trim($_POST['db_host'] ?? '');
+            $db_name = trim($_POST['db_name'] ?? '');
+            $db_user = trim($_POST['db_user'] ?? '');
             $db_pass = $_POST['db_pass'] ?? '';
 
-            $db_test = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
-            if ($db_test === true) {
-                $_SESSION['db_config'] = [
-                    'host' => $db_host,
-                    'name' => $db_name,
-                    'user' => $db_user,
-                    'pass' => $db_pass
-                ];
-                header('Location: install.php?step=3');
-                exit;
+            if (empty($db_host) || empty($db_name) || empty($db_user)) {
+                $error = "Todos los campos son requeridos";
             } else {
-                $error = "Error de conexión: " . $db_test;
+                $db_test = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
+                if ($db_test === true) {
+                    $_SESSION['db_config'] = [
+                        'host' => $db_host,
+                        'name' => $db_name,
+                        'user' => $db_user,
+                        'pass' => $db_pass
+                    ];
+                    header('Location: install.php?step=3');
+                    exit;
+                } else {
+                    $error = "Error de conexión: " . $db_test;
+                }
             }
             break;
 
         case 3:
-            $site_name = $_POST['site_name'] ?? '';
-            $site_url = $_POST['site_url'] ?? '';
-            $admin_email = $_POST['admin_email'] ?? '';
+            $site_name = trim($_POST['site_name'] ?? '');
+            $site_url = trim($_POST['site_url'] ?? '');
+            $admin_email = trim($_POST['admin_email'] ?? '');
             $admin_password = $_POST['admin_password'] ?? '';
 
             if (empty($site_name) || empty($site_url) || empty($admin_email) || empty($admin_password)) {
@@ -80,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $_SESSION['site_config'] = [
                     'name' => $site_name,
-                    'url' => $site_url,
+                    'url' => rtrim($site_url, '/'),
                     'email' => $admin_email,
                     'password' => password_hash($admin_password, PASSWORD_DEFAULT)
                 ];
@@ -91,21 +104,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         case 4:
             try {
+                if (!isset($_SESSION['db_config']) || !isset($_SESSION['site_config'])) {
+                    throw new Exception("Información de configuración incompleta");
+                }
+
                 // Crear archivo de configuración
                 if (!file_exists('config')) {
-                    mkdir('config', 0755);
+                    mkdir('config', 0755, true);
                 }
                 
                 $config_content = "<?php
-                define('DB_HOST', '{$_SESSION['db_config']['host']}');
-                define('DB_NAME', '{$_SESSION['db_config']['name']}');
-                define('DB_USER', '{$_SESSION['db_config']['user']}');
-                define('DB_PASS', '{$_SESSION['db_config']['pass']}');
-                define('SITE_NAME', '{$_SESSION['site_config']['name']}');
-                define('BASE_URL', '{$_SESSION['site_config']['url']}');
-                ";
+define('DB_HOST', '{$_SESSION['db_config']['host']}');
+define('DB_NAME', '{$_SESSION['db_config']['name']}');
+define('DB_USER', '{$_SESSION['db_config']['user']}');
+define('DB_PASS', '{$_SESSION['db_config']['pass']}');
+define('SITE_NAME', '{$_SESSION['site_config']['name']}');
+define('BASE_URL', '{$_SESSION['site_config']['url']}');
+";
                 
-                file_put_contents('config/config.php', $config_content);
+                if (!file_put_contents('config/config.php', $config_content)) {
+                    throw new Exception("No se pudo escribir el archivo de configuración");
+                }
 
                 // Importar base de datos
                 $db = new PDO(
@@ -134,11 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
     }
-}
-
-// Verificar si ya está instalado
-if (file_exists('config/config.php') && $step === 1) {
-    die('El sistema ya está instalado. Por seguridad, elimina el archivo install.php');
 }
 ?>
 <!DOCTYPE html>
