@@ -8,6 +8,7 @@ class SecurityMiddleware {
         '/public/register.php',
         '/public/forgot-password.php',
         '/public/reset-password.php',
+        '/public/maintenance.php',
         '/install.php',
         '/public/assets/',
         '/public/api/'
