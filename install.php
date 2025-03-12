@@ -338,9 +338,135 @@ define('LOG_DIR', __DIR__ . '/logs');
                         throw new Exception("Error al conectar con la base de datos: " . $e->getMessage());
                     }
 
-                    // Si todo salió bien
+                    // Después de verificar la conexión a la base de datos, crear las tablas
+                    $tables_sql = "
+                        CREATE TABLE IF NOT EXISTS users (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            name VARCHAR(100) NOT NULL,
+                            email VARCHAR(100) NOT NULL UNIQUE,
+                            password VARCHAR(255) NOT NULL,
+                            role ENUM('admin', 'instructor', 'student') DEFAULT 'student',
+                            status ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        );
+
+                        CREATE TABLE IF NOT EXISTS courses (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            title VARCHAR(200) NOT NULL,
+                            description TEXT,
+                            instructor_id INT,
+                            price DECIMAL(10,2) DEFAULT 0.00,
+                            status ENUM('draft', 'published', 'archived') DEFAULT 'draft',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (instructor_id) REFERENCES users(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS enrollments (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            course_id INT,
+                            status ENUM('pending', 'active', 'completed', 'cancelled') DEFAULT 'pending',
+                            enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            completion_date TIMESTAMP NULL,
+                            FOREIGN KEY (user_id) REFERENCES users(id),
+                            FOREIGN KEY (course_id) REFERENCES courses(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS lessons (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            course_id INT,
+                            title VARCHAR(200) NOT NULL,
+                            content TEXT,
+                            order_number INT DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            FOREIGN KEY (course_id) REFERENCES courses(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS payments (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            course_id INT,
+                            amount DECIMAL(10,2) NOT NULL,
+                            status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+                            payment_method VARCHAR(50),
+                            transaction_id VARCHAR(100),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (user_id) REFERENCES users(id),
+                            FOREIGN KEY (course_id) REFERENCES courses(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS progress (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            lesson_id INT,
+                            status ENUM('not_started', 'in_progress', 'completed') DEFAULT 'not_started',
+                            last_accessed TIMESTAMP NULL,
+                            completed_at TIMESTAMP NULL,
+                            FOREIGN KEY (user_id) REFERENCES users(id),
+                            FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS categories (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            name VARCHAR(100) NOT NULL,
+                            slug VARCHAR(100) NOT NULL UNIQUE,
+                            description TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+
+                        CREATE TABLE IF NOT EXISTS course_categories (
+                            course_id INT,
+                            category_id INT,
+                            PRIMARY KEY (course_id, category_id),
+                            FOREIGN KEY (course_id) REFERENCES courses(id),
+                            FOREIGN KEY (category_id) REFERENCES categories(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS settings (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            `key` VARCHAR(100) NOT NULL UNIQUE,
+                            value TEXT,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        );
+                    ";
+
+                    // Ejecutar las consultas SQL para crear las tablas
+                    $queries = array_filter(array_map('trim', explode(';', $tables_sql)));
+                    foreach ($queries as $query) {
+                        if (!empty($query)) {
+                            $db->exec($query);
+                        }
+                    }
+
+                    // Crear usuario administrador
+                    $admin_sql = "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')";
+                    $stmt = $db->prepare($admin_sql);
+                    $stmt->execute([
+                        'Administrator',
+                        $_SESSION['site_config']['email'],
+                        $_SESSION['site_config']['password']
+                    ]);
+
+                    // Insertar configuraciones básicas
+                    $settings_sql = "INSERT INTO settings (`key`, value) VALUES 
+                        ('site_name', ?),
+                        ('site_url', ?),
+                        ('admin_email', ?),
+                        ('maintenance_mode', 'false'),
+                        ('timezone', 'America/Mexico_City')";
+                    $stmt = $db->prepare($settings_sql);
+                    $stmt->execute([
+                        $_SESSION['site_config']['name'],
+                        $_SESSION['site_config']['url'],
+                        $_SESSION['site_config']['email']
+                    ]);
+
                     $success = true;
-                    
+                    session_destroy(); // Limpiar la sesión después de una instalación exitosa
+
                 } catch (Exception $e) {
                     $error = "Error durante la instalación: " . $e->getMessage();
                     
