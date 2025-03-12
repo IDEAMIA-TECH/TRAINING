@@ -272,39 +272,24 @@ define('PUBLIC_PATH', '/public');
 define('ASSETS_PATH', PUBLIC_PATH . '/assets');
 define('UPLOADS_PATH', ASSETS_PATH . '/uploads');
 
-// Configuración de Correo
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', '587');
-define('SMTP_USER', '');
-define('SMTP_PASS', '');
-define('SMTP_FROM', '{$_SESSION['site_config']['email']}');
+// Configuración de correo
+define('MAIL_HOST', 'smtp.example.com');
+define('MAIL_PORT', '587');
+define('MAIL_USERNAME', 'your_email@example.com');
+define('MAIL_PASSWORD', 'your_password');
+define('MAIL_ENCRYPTION', 'tls');
+define('MAIL_FROM_ADDRESS', '{$_SESSION['site_config']['email']}');
+define('MAIL_FROM_NAME', '{$_SESSION['site_config']['name']}');
 
-// Configuración de Pagos
-define('PAYPAL_CLIENT_ID', '');
-define('PAYPAL_SECRET', '');
-define('STRIPE_PUBLIC_KEY', '');
-define('STRIPE_SECRET_KEY', '');
+// Configuración de pagos
+define('STRIPE_PUBLIC_KEY', 'your_public_key');
+define('STRIPE_SECRET_KEY', 'your_secret_key');
+define('STRIPE_WEBHOOK_SECRET', 'your_webhook_secret');
 
-// Configuración de Seguridad
-define('CSRF_TOKEN_SECRET', '".bin2hex(random_bytes(32))."');
-define('SESSION_LIFETIME', 7200);
-define('COOKIE_LIFETIME', 604800);
-
-// Configuración de Archivos
-define('MAX_UPLOAD_SIZE', 5242880); // 5MB
-define('ALLOWED_FILE_TYPES', 'jpg,jpeg,png,gif,pdf,doc,docx');
-define('UPLOAD_PATH', 'assets/uploads/');
-
-// Configuración de Cache
-define('CACHE_ENABLED', true);
-define('CACHE_PATH', 'cache/');
-define('CACHE_LIFETIME', 3600);
-
-// Zona horaria
-date_default_timezone_set('America/Mexico_City');
-
-// Modo debug
-define('DEBUG_MODE', false);
+// Directorios
+define('UPLOAD_DIR', __DIR__ . '/uploads');
+define('CACHE_DIR', __DIR__ . '/cache');
+define('LOG_DIR', __DIR__ . '/logs');
 ";
                 
                 if (!file_put_contents('config/config.php', $config_content)) {
@@ -359,10 +344,43 @@ return [
     'env' => 'production',
     'debug' => false,
     'maintenance_mode' => false,
-    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.'
+    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.',
+    'session_lifetime' => 3600,
+    'upload_max_size' => 5242880,
+    'allowed_file_types' => ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
+    'pagination' => [
+        'per_page' => 10,
+        'max_pages' => 5
+    ],
+    'security' => [
+        'password_min_length' => 8,
+        'rate_limit' => 60,
+        'rate_limit_window' => 60
+    ]
 ];";
                 if (!file_put_contents('config/app.php', $app_content)) {
                     throw new Exception("No se pudo escribir la configuración de la aplicación");
+                }
+
+                // Verificar que los archivos se crearon correctamente
+                if (!file_exists('config/config.php') || 
+                    !file_exists('config/database.php') || 
+                    !file_exists('config/app.php')) {
+                    throw new Exception("No se pudieron crear todos los archivos de configuración");
+                }
+
+                // Verificar que los archivos son legibles
+                if (!is_readable('config/config.php') || 
+                    !is_readable('config/database.php') || 
+                    !is_readable('config/app.php')) {
+                    throw new Exception("Los archivos de configuración no son legibles");
+                }
+
+                // Verificar que los archivos tienen el contenido correcto
+                foreach (['config/config.php', 'config/database.php', 'config/app.php'] as $file) {
+                    if (filesize($file) === 0) {
+                        throw new Exception("El archivo $file está vacío");
+                    }
                 }
 
                 // Importar base de datos
