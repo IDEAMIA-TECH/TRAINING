@@ -1,9 +1,9 @@
 <?php
 session_start();
 
-// Definir constantes de rutas
-define('BASE_PATH', realpath(__DIR__ . '/..'));
-define('PUBLIC_PATH', '/public');
+// Definir constantes de rutas (solo si no están definidas)
+if (!defined('BASE_PATH')) define('BASE_PATH', realpath(__DIR__ . '/..'));
+if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', '/public');
 
 // Verificar si estamos en el instalador
 $isInstaller = strpos($_SERVER['PHP_SELF'], 'install.php') !== false;
@@ -21,27 +21,6 @@ if (!file_exists(BASE_PATH . '/config/config.php')) {
 
 // Cargar configuración principal
 require_once BASE_PATH . '/config/config.php';
-
-// Función helper para redirecciones
-function redirect($path) {
-    $base_url = rtrim(BASE_URL, '/');
-    $public_path = '/public';
-    
-    // Si la ruta no comienza con /, añadirlo
-    if (strpos($path, '/') !== 0) {
-        $path = '/' . $path;
-    }
-    
-    // Si la ruta no incluye /public/ y no es una ruta especial, añadir /public/
-    if (strpos($path, '/public/') !== 0 && 
-        strpos($path, '/api/') !== 0 && 
-        strpos($path, '/assets/') !== 0) {
-        $path = $public_path . $path;
-    }
-    
-    header('Location: ' . $base_url . $path);
-    exit;
-}
 
 // Inicializar conexión a base de datos
 try {

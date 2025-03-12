@@ -265,12 +265,11 @@ define('DB_PASS', '{$_SESSION['db_config']['pass']}');
 // Configuración del Sitio
 define('SITE_NAME', '{$_SESSION['site_config']['name']}');
 define('BASE_URL', '{$_SESSION['site_config']['url']}');
-define('PUBLIC_URL', BASE_URL . '/public');
 
-// Rutas del sistema
-define('PUBLIC_PATH', '/public');
-define('ASSETS_PATH', PUBLIC_PATH . '/assets');
-define('UPLOADS_PATH', ASSETS_PATH . '/uploads');
+// Rutas del sistema (solo definir si no están definidas)
+if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', '/public');
+if (!defined('ASSETS_PATH')) define('ASSETS_PATH', PUBLIC_PATH . '/assets');
+if (!defined('UPLOADS_PATH')) define('UPLOADS_PATH', ASSETS_PATH . '/uploads');
 
 // Configuración de correo
 define('MAIL_HOST', 'smtp.example.com');
@@ -287,9 +286,9 @@ define('STRIPE_SECRET_KEY', 'your_secret_key');
 define('STRIPE_WEBHOOK_SECRET', 'your_webhook_secret');
 
 // Directorios
-define('UPLOAD_DIR', __DIR__ . '/uploads');
-define('CACHE_DIR', __DIR__ . '/cache');
-define('LOG_DIR', __DIR__ . '/logs');
+if (!defined('UPLOAD_DIR')) define('UPLOAD_DIR', __DIR__ . '/uploads');
+if (!defined('CACHE_DIR')) define('CACHE_DIR', __DIR__ . '/cache');
+if (!defined('LOG_DIR')) define('LOG_DIR', __DIR__ . '/logs');
 ";
                 
                 if (!file_put_contents('config/config.php', $config_content)) {

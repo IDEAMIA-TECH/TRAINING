@@ -14,9 +14,31 @@ function is_admin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
 
-function redirect($path) {
-    header("Location: " . BASE_URL . $path);
-    exit();
+if (!function_exists('redirect')) {
+    /**
+     * Redirecciona a una URL específica
+     * @param string $path Ruta a la que redireccionar
+     * @return void
+     */
+    function redirect($path) {
+        $base_url = rtrim(BASE_URL, '/');
+        $public_path = '/public';
+        
+        // Si la ruta no comienza con /, añadirlo
+        if (strpos($path, '/') !== 0) {
+            $path = '/' . $path;
+        }
+        
+        // Si la ruta no incluye /public/ y no es una ruta especial, añadir /public/
+        if (strpos($path, '/public/') !== 0 && 
+            strpos($path, '/api/') !== 0 && 
+            strpos($path, '/assets/') !== 0) {
+            $path = $public_path . $path;
+        }
+        
+        header('Location: ' . $base_url . $path);
+        exit;
+    }
 }
 
 function generate_csrf_token() {
