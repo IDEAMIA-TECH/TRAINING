@@ -4,16 +4,13 @@ class QueryOptimizer {
     private $cache;
     private $logger;
 
-    public function __construct($db = null, $cache = null, $logger = null) {
+    public function __construct($db, $cache, $logger) {
         $this->db = $db;
         $this->cache = $cache;
         $this->logger = $logger;
     }
 
     public function getActiveCourses($page = 1, $limit = 10, $filters = []) {
-        if (!$this->db) {
-            return [];
-        }
         $cache_key = "courses_p{$page}_l{$limit}_" . md5(serialize($filters));
         $result = $this->cache->get($cache_key);
 

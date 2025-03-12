@@ -1,0 +1,85 @@
+/* Testimonials */
+.testimonials {
+  background: var(--white);
+  padding: 80px 0;
+}
+
+.testimonial-card {
+  background: var(--light-bg);
+  padding: 30px;
+  border-radius: 5px;
+  text-align: center;
+  margin: 20px;
+}
+
+.testimonial-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+}
+
+/* Contact Form */
+.contact-form {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px;
+  background: var(--white);
+  border-radius: 5px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+/* Footer */
+.footer {
+  background: var(--secondary-color);
+  color: var(--white);
+  padding: 60px 0 30px;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.footer-links h4 {
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+
+.footer-links ul {
+  list-style: none;
+}
+
+.footer-links a {
+  color: var(--white);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+}
+
+.footer-links a:hover {
+  opacity: 1;
+}
+
+.footer-bottom {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+} 

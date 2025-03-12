@@ -5,18 +5,12 @@ class CacheManager {
     private $ttl;
 
     public function __construct($cache_dir = null, $ttl = 3600) {
-        // Si estamos en el instalador, deshabilitar el caché
-        if (strpos($_SERVER['PHP_SELF'], 'install.php') !== false) {
-            $this->enabled = false;
-            return;
-        }
-
         $this->cache_dir = $cache_dir ?? __DIR__ . '/../../cache';
         $this->ttl = $ttl;
         $this->enabled = true;
 
         if (!file_exists($this->cache_dir)) {
-            @mkdir($this->cache_dir, 0755, true);
+            mkdir($this->cache_dir, 0755, true);
         }
     }
 

@@ -3,42 +3,18 @@ class SecurityMiddleware {
     private $db;
     private $logger;
     private $settings;
-    private $publicRoutes = [
-        '/public/login.php',
-        '/public/register.php',
-        '/public/forgot-password.php',
-        '/public/reset-password.php',
-        '/public/maintenance.php',
-        '/install.php',
-        '/public/assets/',
-        '/public/api/'
-    ];
 
-    public function __construct($db = null, $logger = null, $settings = null) {
+    public function __construct($db, $logger, $settings) {
         $this->db = $db;
         $this->logger = $logger;
         $this->settings = $settings;
     }
 
     public function validateRequest() {
-        // Si estamos en una ruta pública, no validar
-        if ($this->isPublicRoute()) {
-            return true;
-        }
-
-        // Si no hay conexión a la base de datos, redirigir al instalador
-        if (!$this->db) {
-            if (!file_exists('install.php')) {
-                die('El sistema no está instalado y no se encuentra el instalador.');
-            }
-            header('Location: /install.php');
-            exit;
-        }
-
-        $this->validateRateLimit();
         $this->validateCSRF();
-        $this->validateSession();
-        return true;
+        $this->validateRateLimit();
+        $this->validateInputs();
+        $this->setSecurityHeaders();
     }
 
     private function validateCSRF() {
@@ -55,42 +31,40 @@ class SecurityMiddleware {
     }
 
     private function validateRateLimit() {
-        if (!$this->db) {
-            throw new Exception('No database connection available');
-        }
-
         $ip = $_SERVER['REMOTE_ADDR'];
-        $endpoint = $_SERVER['REQUEST_URI'];
-        $now = date('Y-m-d H:i:s');
-
+        $uri = $_SERVER['REQUEST_URI'];
+        
         // Limpiar registros antiguos
         $stmt = $this->db->prepare("
             DELETE FROM rate_limits 
-            WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+            WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
         ");
         $stmt->execute();
 
-        // Contar solicitudes recientes
+        // Verificar límite
         $stmt = $this->db->prepare("
-            SELECT COUNT(*) as count 
+            SELECT COUNT(*) 
             FROM rate_limits 
             WHERE ip_address = ? 
             AND endpoint = ?
             AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
         ");
-        $stmt->execute([$ip, $endpoint]);
-        $result = $stmt->fetch();
-
-        if ($result['count'] > 60) { // 60 solicitudes por minuto
+        $stmt->execute([$ip, $uri]);
+        
+        if ($stmt->fetchColumn() > 60) { // 60 requests per minute
+            $this->logger->log('security_warning', 'rate_limit', null, [
+                'ip' => $ip,
+                'uri' => $uri
+            ]);
             throw new Exception('Rate limit exceeded');
         }
 
-        // Registrar nueva solicitud
+        // Registrar request
         $stmt = $this->db->prepare("
-            INSERT INTO rate_limits (ip_address, endpoint, created_at) 
-            VALUES (?, ?, ?)
+            INSERT INTO rate_limits (ip_address, endpoint) 
+            VALUES (?, ?)
         ");
-        $stmt->execute([$ip, $endpoint, $now]);
+        $stmt->execute([$ip, $uri]);
     }
 
     private function validateInputs() {
@@ -177,78 +151,5 @@ class SecurityMiddleware {
         $filename = basename($filename);
         
         return $filename;
-    }
-
-    private function isPublicRoute() {
-        $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        
-        foreach ($this->publicRoutes as $route) {
-            if (strpos($currentPath, $route) === 0) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function validateSession() {
-        // Verificar si la sesión está iniciada
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        // Verificar si el usuario está autenticado
-        if (!isset($_SESSION['user_id'])) {
-            // Si no está autenticado y no es una ruta pública, redirigir al login
-            if (!$this->isPublicRoute()) {
-                $_SESSION['error'] = 'Debes iniciar sesión para acceder a esta página';
-                $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-                header('Location: /public/login.php');
-                exit;
-            }
-        } else {
-            // Si el usuario está autenticado, verificar si la sesión ha expirado
-            if (isset($_SESSION['last_activity'])) {
-                $session_lifetime = 3600; // 1 hora en segundos
-                if (time() - $_SESSION['last_activity'] > $session_lifetime) {
-                    // La sesión ha expirado
-                    session_unset();
-                    session_destroy();
-                    $_SESSION['error'] = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-                    header('Location: /public/login.php');
-                    exit;
-                }
-            }
-            
-            // Actualizar el tiempo de última actividad
-            $_SESSION['last_activity'] = time();
-
-            // Verificar si el usuario sigue activo en la base de datos
-            if ($this->db) {
-                $stmt = $this->db->prepare("
-                    SELECT status 
-                    FROM users 
-                    WHERE id = ? 
-                    AND status = 'active'
-                ");
-                $stmt->execute([$_SESSION['user_id']]);
-                
-                if (!$stmt->fetch()) {
-                    // El usuario ya no está activo
-                    session_unset();
-                    session_destroy();
-                    $_SESSION['error'] = 'Tu cuenta ha sido desactivada.';
-                    header('Location: /public/login.php');
-                    exit;
-                }
-            }
-        }
-
-        // Regenerar el ID de sesión periódicamente para prevenir session fixation
-        if (!isset($_SESSION['last_regeneration']) || 
-            time() - $_SESSION['last_regeneration'] > 300) { // Cada 5 minutos
-            session_regenerate_id(true);
-            $_SESSION['last_regeneration'] = time();
-        }
     }
 } 
