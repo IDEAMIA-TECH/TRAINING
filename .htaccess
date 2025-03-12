@@ -7,4 +7,9 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ public/index.php [L,QSA]
 
 # Permitir acceso a los assets
-RewriteRule ^assets/ - [L] 
+RewriteRule ^assets/ - [L]
+
+# Agregar estas líneas al final del archivo
+ErrorDocument 404 /error.php?code=404
+ErrorDocument 403 /error.php?code=403
+ErrorDocument 500 /error.php?code=500 
