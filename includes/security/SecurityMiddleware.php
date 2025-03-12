@@ -5,16 +5,24 @@ class SecurityMiddleware {
     private $settings;
 
     public function __construct($db, $logger, $settings) {
+        if (!$db) {
+            throw new Exception('Database connection is required for SecurityMiddleware');
+        }
         $this->db = $db;
         $this->logger = $logger;
         $this->settings = $settings;
     }
 
     public function validateRequest() {
-        $this->validateCSRF();
+        // Verificar si estamos en una ruta pública
+        if ($this->isPublicRoute()) {
+            return true;
+        }
+
         $this->validateRateLimit();
-        $this->validateInputs();
-        $this->setSecurityHeaders();
+        $this->validateCSRF();
+        $this->validateSession();
+        return true;
     }
 
     private function validateCSRF() {
@@ -31,40 +39,42 @@ class SecurityMiddleware {
     }
 
     private function validateRateLimit() {
+        if (!$this->db) {
+            throw new Exception('No database connection available');
+        }
+
         $ip = $_SERVER['REMOTE_ADDR'];
-        $uri = $_SERVER['REQUEST_URI'];
-        
+        $endpoint = $_SERVER['REQUEST_URI'];
+        $now = date('Y-m-d H:i:s');
+
         // Limpiar registros antiguos
         $stmt = $this->db->prepare("
             DELETE FROM rate_limits 
-            WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE)
         ");
         $stmt->execute();
 
-        // Verificar límite
+        // Contar solicitudes recientes
         $stmt = $this->db->prepare("
-            SELECT COUNT(*) 
+            SELECT COUNT(*) as count 
             FROM rate_limits 
             WHERE ip_address = ? 
             AND endpoint = ?
             AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
         ");
-        $stmt->execute([$ip, $uri]);
-        
-        if ($stmt->fetchColumn() > 60) { // 60 requests per minute
-            $this->logger->log('security_warning', 'rate_limit', null, [
-                'ip' => $ip,
-                'uri' => $uri
-            ]);
+        $stmt->execute([$ip, $endpoint]);
+        $result = $stmt->fetch();
+
+        if ($result['count'] > 60) { // 60 solicitudes por minuto
             throw new Exception('Rate limit exceeded');
         }
 
-        // Registrar request
+        // Registrar nueva solicitud
         $stmt = $this->db->prepare("
-            INSERT INTO rate_limits (ip_address, endpoint) 
-            VALUES (?, ?)
+            INSERT INTO rate_limits (ip_address, endpoint, created_at) 
+            VALUES (?, ?, ?)
         ");
-        $stmt->execute([$ip, $uri]);
+        $stmt->execute([$ip, $endpoint, $now]);
     }
 
     private function validateInputs() {
@@ -151,5 +161,27 @@ class SecurityMiddleware {
         $filename = basename($filename);
         
         return $filename;
+    }
+
+    private function isPublicRoute() {
+        $publicRoutes = [
+            '/login.php',
+            '/register.php',
+            '/forgot-password.php',
+            '/reset-password.php',
+            '/install.php',
+            '/assets/',
+            '/public/'
+        ];
+
+        $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        
+        foreach ($publicRoutes as $route) {
+            if (strpos($currentPath, $route) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 } 
