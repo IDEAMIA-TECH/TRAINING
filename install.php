@@ -19,9 +19,9 @@ function checkSystemRequirements() {
             'openssl' => extension_loaded('openssl')
         ],
         'writable_dirs' => [
-            'cache' => is_writable('cache'),
-            'assets/uploads' => is_writable('assets/uploads'),
-            'logs' => is_writable('logs')
+            'cache' => is_writable('cache') || @mkdir('cache', 0777),
+            'assets/uploads' => is_writable('assets/uploads') || @mkdir('assets/uploads', 0777, true),
+            'logs' => is_writable('logs') || @mkdir('logs', 0777)
         ]
     ];
 
@@ -31,9 +31,14 @@ function checkSystemRequirements() {
 // Probar conexión a base de datos
 function testDatabaseConnection($host, $name, $user, $pass) {
     try {
-        $dsn = "mysql:host=$host;dbname=$name;charset=utf8mb4";
+        $dsn = "mysql:host=$host;charset=utf8mb4";
         $db = new PDO($dsn, $user, $pass);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Intentar crear la base de datos si no existe
+        $db->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        $db->exec("USE `$name`");
+        
         return true;
     } catch (PDOException $e) {
         return $e->getMessage();
@@ -43,7 +48,7 @@ function testDatabaseConnection($host, $name, $user, $pass) {
 // Procesar formularios
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     switch ($step) {
-        case 2: // Configuración de base de datos
+        case 2:
             $db_host = $_POST['db_host'] ?? '';
             $db_name = $_POST['db_name'] ?? '';
             $db_user = $_POST['db_user'] ?? '';
@@ -64,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
-        case 3: // Configuración del sitio
+        case 3:
             $site_name = $_POST['site_name'] ?? '';
             $site_url = $_POST['site_url'] ?? '';
             $admin_email = $_POST['admin_email'] ?? '';
@@ -84,22 +89,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
 
-        case 4: // Instalación final
+        case 4:
             try {
                 // Crear archivo de configuración
-                $config_template = file_get_contents('config/config.example.php');
-                $config = str_replace(
-                    ['your_host', 'your_database', 'your_username', 'your_password', 'your_site_url'],
-                    [
-                        $_SESSION['db_config']['host'],
-                        $_SESSION['db_config']['name'],
-                        $_SESSION['db_config']['user'],
-                        $_SESSION['db_config']['pass'],
-                        $_SESSION['site_config']['url']
-                    ],
-                    $config_template
-                );
-                file_put_contents('config/config.php', $config);
+                if (!file_exists('config')) {
+                    mkdir('config', 0755);
+                }
+                
+                $config_content = "<?php
+                define('DB_HOST', '{$_SESSION['db_config']['host']}');
+                define('DB_NAME', '{$_SESSION['db_config']['name']}');
+                define('DB_USER', '{$_SESSION['db_config']['user']}');
+                define('DB_PASS', '{$_SESSION['db_config']['pass']}');
+                define('SITE_NAME', '{$_SESSION['site_config']['name']}');
+                define('BASE_URL', '{$_SESSION['site_config']['url']}');
+                ";
+                
+                file_put_contents('config/config.php', $config_content);
 
                 // Importar base de datos
                 $db = new PDO(
@@ -143,86 +149,169 @@ if (file_exists('config/config.php') && $step === 1) {
     <title>Instalación - Sistema de Cursos</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        /* Estilos CSS aquí */
+        :root {
+            --primary-color: #FF4B4B;
+            --secondary-color: #2D3958;
+            --text-color: #6E7485;
+            --border-color: #E5E8ED;
+            --success-color: #4CAF50;
+            --error-color: #ff3333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Poppins', sans-serif;
             line-height: 1.6;
-            margin: 0;
-            padding: 20px;
             background: #f7f8fb;
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
+
         .container {
-            max-width: 800px;
-            margin: 40px auto;
             background: white;
-            padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+
         .steps {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 40px;
+            position: relative;
         }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border-color);
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
         .step {
-            text-align: center;
-            color: #666;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: var(--text-color);
+            position: relative;
+            z-index: 2;
+            border: 2px solid var(--border-color);
         }
+
         .step.active {
-            color: #FF4B4B;
-            font-weight: 500;
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
+
         label {
             display: block;
-            margin-bottom: 5px;
-            color: #2D3958;
+            margin-bottom: 8px;
+            color: var(--secondary-color);
+            font-weight: 500;
         }
-        input[type="text"],
-        input[type="password"],
-        input[type="email"] {
+
+        input {
             width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
         }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
         .btn {
-            background: #FF4B4B;
+            background: var(--primary-color);
             color: white;
-            padding: 10px 20px;
+            padding: 12px 30px;
             border: none;
-            border-radius: 4px;
+            border-radius: 5px;
             cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: transform 0.3s;
+            display: inline-block;
+            text-decoration: none;
         }
+
         .btn:hover {
-            background: #ff3333;
+            transform: translateY(-2px);
         }
+
         .error {
-            color: #ff3333;
+            color: var(--error-color);
             margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(255,51,51,0.1);
         }
+
         .success {
-            color: #4CAF50;
+            color: var(--success-color);
             margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(76,175,80,0.1);
         }
+
         .requirements {
             list-style: none;
             padding: 0;
         }
+
         .requirements li {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+
         .requirements .status {
-            float: right;
-            color: #4CAF50;
+            font-weight: 500;
         }
+
+        .requirements .status.success {
+            color: var(--success-color);
+            background: none;
+            padding: 0;
+        }
+
         .requirements .status.error {
-            color: #ff3333;
+            color: var(--error-color);
+            background: none;
+            padding: 0;
         }
     </style>
 </head>
@@ -244,15 +333,15 @@ if (file_exists('config/config.php') && $step === 1) {
         <?php endif; ?>
 
         <?php switch ($step):
-            case 1: // Verificación de requisitos
+            case 1:
                 $requirements = checkSystemRequirements();
                 $can_continue = true;
                 ?>
-                <h2>Verificación de Requisitos del Sistema</h2>
+                <h2>Verificación de Requisitos</h2>
                 <ul class="requirements">
                     <li>
                         PHP Version (>= 8.0.0)
-                        <span class="status <?php echo version_compare(PHP_VERSION, '8.0.0', '>=') ? '' : 'error'; ?>">
+                        <span class="status <?php echo version_compare(PHP_VERSION, '8.0.0', '>=') ? 'success' : 'error'; ?>">
                             <?php echo PHP_VERSION; ?>
                         </span>
                     </li>
@@ -261,7 +350,7 @@ if (file_exists('config/config.php') && $step === 1) {
                     ?>
                         <li>
                             Extensión <?php echo strtoupper($ext); ?>
-                            <span class="status <?php echo $loaded ? '' : 'error'; ?>">
+                            <span class="status <?php echo $loaded ? 'success' : 'error'; ?>">
                                 <?php echo $loaded ? '✓' : '✗'; ?>
                             </span>
                         </li>
@@ -270,22 +359,22 @@ if (file_exists('config/config.php') && $step === 1) {
                         if (!$writable) $can_continue = false;
                     ?>
                         <li>
-                            Directorio <?php echo $dir; ?> con permisos de escritura
-                            <span class="status <?php echo $writable ? '' : 'error'; ?>">
+                            Directorio <?php echo $dir; ?>
+                            <span class="status <?php echo $writable ? 'success' : 'error'; ?>">
                                 <?php echo $writable ? '✓' : '✗'; ?>
                             </span>
                         </li>
                     <?php endforeach; ?>
                 </ul>
                 <?php if ($can_continue): ?>
-                    <form method="get">
+                    <form method="get" style="text-align: center; margin-top: 30px;">
                         <input type="hidden" name="step" value="2">
                         <button type="submit" class="btn">Continuar</button>
                     </form>
                 <?php endif; ?>
                 <?php break;
 
-            case 2: // Configuración de base de datos ?>
+            case 2: ?>
                 <h2>Configuración de Base de Datos</h2>
                 <form method="post">
                     <div class="form-group">
@@ -304,11 +393,13 @@ if (file_exists('config/config.php') && $step === 1) {
                         <label>Contraseña</label>
                         <input type="password" name="db_pass" required>
                     </div>
-                    <button type="submit" class="btn">Probar Conexión y Continuar</button>
+                    <div style="text-align: center;">
+                        <button type="submit" class="btn">Probar Conexión y Continuar</button>
+                    </div>
                 </form>
                 <?php break;
 
-            case 3: // Configuración del sitio ?>
+            case 3: ?>
                 <h2>Configuración del Sitio</h2>
                 <form method="post">
                     <div class="form-group">
@@ -327,25 +418,29 @@ if (file_exists('config/config.php') && $step === 1) {
                         <label>Contraseña del Administrador</label>
                         <input type="password" name="admin_password" required>
                     </div>
-                    <button type="submit" class="btn">Continuar</button>
+                    <div style="text-align: center;">
+                        <button type="submit" class="btn">Continuar</button>
+                    </div>
                 </form>
                 <?php break;
 
-            case 4: // Instalación final ?>
+            case 4: ?>
                 <h2>Instalación Final</h2>
                 <?php if (!$success): ?>
-                    <form method="post">
-                        <p>Todo está listo para la instalación final. Haz clic en el botón para comenzar.</p>
+                    <form method="post" style="text-align: center;">
+                        <p style="margin-bottom: 30px;">Todo está listo para la instalación final. Haz clic en el botón para comenzar.</p>
                         <button type="submit" class="btn">Instalar</button>
                     </form>
                 <?php else: ?>
-                    <p>La instalación se ha completado con éxito. Por favor:</p>
-                    <ol>
-                        <li>Elimina el archivo install.php</li>
-                        <li>Accede al panel de administración</li>
-                        <li>Configura los métodos de pago y correo</li>
-                    </ol>
-                    <a href="login.php" class="btn">Ir al Login</a>
+                    <div style="text-align: center;">
+                        <p style="margin-bottom: 30px;">La instalación se ha completado con éxito. Por favor:</p>
+                        <ol style="text-align: left; margin-bottom: 30px;">
+                            <li>Elimina el archivo install.php</li>
+                            <li>Accede al panel de administración</li>
+                            <li>Configura los métodos de pago y correo</li>
+                        </ol>
+                        <a href="login.php" class="btn">Ir al Login</a>
+                    </div>
                 <?php endif; ?>
                 <?php break;
         endswitch; ?>
