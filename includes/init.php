@@ -34,12 +34,6 @@ try {
 $user_authenticated = is_authenticated();
 $user_is_admin = is_admin();
 
-// Función de redirección
-function redirect($path) {
-    header("Location: " . BASE_URL . $path);
-    exit;
-}
-
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/pagination.php';
 require_once __DIR__ . '/Logger.php';
