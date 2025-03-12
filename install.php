@@ -40,38 +40,21 @@ function checkSystemRequirements() {
 // Probar conexión a base de datos
 function testDatabaseConnection($host, $name, $user, $pass) {
     try {
-        // Primero conectar sin base de datos
-        $dsn = "mysql:host=$host;charset=utf8mb4";
+        // Intentar conectar directamente a la base de datos
+        $dsn = "mysql:host=$host;dbname=$name;charset=utf8mb4";
         $db = new PDO($dsn, $user, $pass);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        // Verificar si la base de datos existe
-        $stmt = $db->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name'");
-        $dbExists = $stmt->fetch();
-        
-        if (!$dbExists) {
-            // Intentar crear la base de datos
-            $db->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        }
-        
-        // Otorgar todos los privilegios al usuario en esta base de datos
-        $db->exec("GRANT ALL PRIVILEGES ON `$name`.* TO '$user'@'localhost'");
-        $db->exec("FLUSH PRIVILEGES");
-        
-        // Intentar usar la base de datos
-        $db->exec("USE `$name`");
+        // Verificar si podemos realizar operaciones básicas
+        $db->query("SELECT 1");
         
         return true;
     } catch (PDOException $e) {
-        // Si el error es de permisos, intentar con usuario root
-        if (strpos($e->getMessage(), 'Access denied') !== false) {
-            return "Error de permisos: Asegúrate de que el usuario tenga privilegios suficientes. " .
-                   "Puedes crear la base de datos y asignar permisos manualmente con los siguientes comandos SQL:\n\n" .
-                   "CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n" .
-                   "GRANT ALL PRIVILEGES ON `$name`.* TO '$user'@'localhost';\n" .
-                   "FLUSH PRIVILEGES;";
-        }
-        return $e->getMessage();
+        return "Error de conexión: Verifica que:\n" .
+               "1. La base de datos '$name' exista en cPanel\n" .
+               "2. El usuario '$user' tenga todos los privilegios asignados\n" .
+               "3. Las credenciales sean correctas\n\n" .
+               "Mensaje de error: " . $e->getMessage();
     }
 }
 
@@ -156,14 +139,22 @@ define('BASE_URL', '{$_SESSION['site_config']['url']}');
                     );
                     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                    // Dividir el archivo SQL en consultas individuales
+                    // Dividir el archivo SQL en consultas individuales y ejecutar una por una
                     $sql = file_get_contents('database/schema.sql');
-                    $queries = array_filter(array_map('trim', explode(';', $sql)));
+                    $queries = array_filter(
+                        array_map(
+                            'trim',
+                            explode(';', $sql)
+                        )
+                    );
                     
-                    // Ejecutar cada consulta por separado
                     foreach ($queries as $query) {
                         if (!empty($query)) {
-                            $db->exec($query);
+                            try {
+                                $db->exec($query);
+                            } catch (PDOException $e) {
+                                throw new Exception("Error ejecutando consulta: " . $query . "\n" . $e->getMessage());
+                            }
                         }
                     }
 
@@ -172,11 +163,21 @@ define('BASE_URL', '{$_SESSION['site_config']['url']}');
                         INSERT INTO users (name, email, password, role) 
                         VALUES ('Administrator', ?, ?, 'admin')
                     ");
-                    $stmt->execute([$_SESSION['site_config']['email'], $_SESSION['site_config']['password']]);
+                    $stmt->execute([
+                        $_SESSION['site_config']['email'],
+                        $_SESSION['site_config']['password']
+                    ]);
 
                 } catch (PDOException $e) {
-                    throw new Exception("Error en la base de datos: " . $e->getMessage() . 
-                                      "\nPor favor, verifica que el usuario tenga todos los privilegios necesarios.");
+                    throw new Exception(
+                        "Error en la base de datos. Por favor, sigue estos pasos:\n\n" .
+                        "1. Ve a cPanel > MySQL Databases\n" .
+                        "2. Crea una nueva base de datos\n" .
+                        "3. Crea un nuevo usuario o selecciona uno existente\n" .
+                        "4. Asigna TODOS los privilegios al usuario para esta base de datos\n" .
+                        "5. Usa el nombre completo de la base de datos y usuario (incluyendo el prefijo del cPanel)\n\n" .
+                        "Error específico: " . $e->getMessage()
+                    );
                 }
 
                 // Limpiar sesión
