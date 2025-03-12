@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Confirmación de Pago</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2>¡Gracias por tu pago, {{user_name}}!</h2>
+        
+        <p>Hemos recibido tu pago para el curso <strong>{{course_title}}</strong>.</p>
+        
+        <h3>Detalles del Pago:</h3>
+        <ul>
+            <li>Monto: ${{amount}}</li>
+            <li>ID de Transacción: {{transaction_id}}</li>
+            <li>Fecha: {{payment_date}}</li>
+        </ul>
+
+        <p>Puedes ver los detalles del curso aquí:</p>
+        <p><a href="{{course_url}}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ver Curso</a></p>
+
+        <p>Guarda este email como comprobante de tu pago.</p>
+        
+        <p>¡Nos vemos en clase!</p>
+    </div>
+</body>
+</html> 

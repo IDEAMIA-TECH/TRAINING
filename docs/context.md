@@ -101,3 +101,119 @@ Este sistema está diseñado para **facilitar la administración y gestión de c
 - Se recomienda implementar **métricas de seguimiento** para analizar el rendimiento de la plataforma.
 
 ✨ *Un sistema diseñado para optimizar la gestión de entrenamientos y mejorar la experiencia del usuario.* 🚀
+
+---
+
+## 🗄️ 6. Estructura de la Base de Datos
+
+### Tablas Principales:
+
+#### users
+- id (PK)
+- name
+- email
+- password
+- role (admin/client)
+- phone
+- created_at
+- updated_at
+- status (active/inactive)
+
+#### courses
+- id (PK)
+- title
+- description
+- start_date
+- end_date
+- capacity
+- price
+- status (active/inactive)
+- created_at
+- updated_at
+
+#### course_registrations
+- id (PK)
+- course_id (FK)
+- user_id (FK)
+- payment_id (FK)
+- status (pending/confirmed/cancelled)
+- created_at
+- updated_at
+
+#### payments
+- id (PK)
+- user_id (FK)
+- course_id (FK)
+- amount
+- payment_method (paypal/stripe)
+- transaction_id
+- status (pending/completed/failed)
+- created_at
+
+#### banner_slides
+- id (PK)
+- image_url
+- title
+- description
+- link
+- status (active/inactive)
+- order
+- created_at
+- updated_at
+
+#### course_images
+- id (PK)
+- course_id (FK)
+- image_url
+- is_main
+- created_at
+
+---
+
+## 📁 7. Estructura de Carpetas
+project_root/
+├── admin/ # Panel de administración
+│ ├── courses/ # Gestión de cursos
+│ ├── users/ # Gestión de usuarios
+│ ├── payments/ # Gestión de pagos
+│ ├── banner/ # Gestión del banner
+│ └── reports/ # Reportes y estadísticas
+├── assets/
+│ ├── css/
+│ ├── js/
+│ ├── images/
+│ └── uploads/ # Imágenes subidas por usuarios
+├── config/ # Configuración de la aplicación
+├── includes/ # Archivos PHP compartidos
+│ ├── database.php
+│ ├── functions.php
+│ └── auth.php
+├── public/ # Archivos públicos
+│ ├── index.php
+│ ├── courses.php
+│ └── register.php
+├── templates/ # Plantillas HTML
+├── vendor/ # Dependencias de terceros
+└── api/ # Endpoints de API
+├── payments/
+└── notifications/
+
+
+[... contenido existente desde Conclusión ...]
+
+---
+
+## 🔐 8. Seguridad y Validaciones
+
+### Validaciones de Base de Datos
+- Todas las tablas incluyen timestamps para auditoría
+- Claves foráneas con integridad referencial
+- Índices optimizados para búsquedas frecuentes
+
+### Seguridad de Datos
+- Contraseñas hasheadas con algoritmos seguros
+- Validación de datos en frontend y backend
+- Protección contra SQL injection
+- Manejo de sesiones seguro
+- Sanitización de inputs
+
