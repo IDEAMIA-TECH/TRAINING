@@ -1,6 +1,8 @@
 <?php
 // Configuración general
-define('BASE_URL', '//' . $_SERVER['HTTP_HOST'] . '/nombre-del-subdirectorio');
+$subdir = dirname($_SERVER['PHP_SELF']);
+$subdir = ($subdir === '/') ? '' : $subdir;
+define('BASE_URL', '//' . $_SERVER['HTTP_HOST'] . $subdir);
 define('SITE_NAME', 'Sistema de Cursos');
 
 // Configuración de correo

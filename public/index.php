@@ -35,7 +35,7 @@ try {
     <div class="container">
         <h1>Modern Education<br>FOR EVERYONE</h1>
         <p>Descubre nuestros cursos especializados y mejora tus habilidades profesionales.</p>
-        <a href="/courses" class="btn btn-primary">Ver Cursos</a>
+        <a href="<?php echo BASE_URL; ?>/courses" class="btn btn-primary">Ver Cursos</a>
     </div>
 </section>
 
@@ -107,7 +107,7 @@ try {
             <div class="course-grid">
                 <?php foreach ($featured_courses as $course): ?>
                     <div class="course-card">
-                        <img src="/assets/uploads/courses/<?php echo htmlspecialchars($course['main_image']); ?>" 
+                        <img src="<?php echo BASE_URL; ?>/assets/uploads/courses/<?php echo htmlspecialchars($course['main_image']); ?>" 
                              alt="<?php echo htmlspecialchars($course['title']); ?>"
                              class="course-image">
                         <div class="course-content">
@@ -149,7 +149,7 @@ try {
                 <span class="label">Seconds</span>
             </div>
         </div>
-        <a href="/register" class="btn btn-primary">Register Now</a>
+        <a href="<?php echo BASE_URL; ?>/register" class="btn btn-primary">Register Now</a>
     </div>
 </section>
 
