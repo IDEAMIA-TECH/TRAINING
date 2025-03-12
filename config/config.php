@@ -10,7 +10,7 @@ define('SITE_NAME', 'Sistema de Cursos');
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'devgdlho_training');
 define('DB_USER', 'devgdlho_training');
-define('DB_PASS', 'tu_contraseña');
+define('DB_PASS', 'Japc172320!');
 define('DB_CHARSET', 'utf8mb4');
 
 // Configuración de correo

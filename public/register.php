@@ -2,7 +2,7 @@
 require_once '../includes/init.php';
 
 if ($user_authenticated) {
-    redirect('/');
+    redirect('/index.php');
 }
 
 $errors = [];
@@ -44,11 +44,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = "Este correo electrónico ya está registrado";
             } else {
                 // Insertar nuevo usuario
-                $stmt = $db->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'client')");
+                $stmt = $db->prepare("
+                    INSERT INTO users (name, email, password, role, status, created_at) 
+                    VALUES (?, ?, ?, 'client', 'active', CURRENT_TIMESTAMP)
+                ");
+                
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                
                 $stmt->execute([
                     $name,
                     $email,
-                    password_hash($password, PASSWORD_DEFAULT)
+                    $hashed_password
                 ]);
 
                 // Iniciar sesión automáticamente
@@ -56,10 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_name'] = $name;
                 $_SESSION['role'] = 'client';
 
+                // Redireccionar al dashboard
                 redirect('/dashboard.php');
             }
         } catch (PDOException $e) {
-            $errors[] = "Error al registrar usuario: " . $e->getMessage();
+            error_log("Error en registro: " . $e->getMessage());
+            $errors[] = "Error al registrar usuario. Por favor intente más tarde.";
         }
     }
 }
@@ -100,7 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
                 <label for="password">Contraseña</label>
-                <input type="password" id="password" name="password" required>
+                <input type="password" id="password" name="password" required 
+                       minlength="6">
+                <small class="password-requirements">La contraseña debe tener al menos 6 caracteres</small>
             </div>
 
             <div class="form-group">
