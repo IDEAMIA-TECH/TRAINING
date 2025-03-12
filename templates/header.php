@@ -12,6 +12,10 @@
     <!-- Styles -->
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/main.css">
     <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/components.css">
+    <?php if (strpos($_SERVER['REQUEST_URI'], 'login.php') !== false || 
+              strpos($_SERVER['REQUEST_URI'], 'register.php') !== false): ?>
+        <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/auth.css">
+    <?php endif; ?>
     
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">

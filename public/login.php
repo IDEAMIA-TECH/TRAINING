@@ -41,39 +41,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php require_once '../templates/header.php'; ?>
 
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="mb-0">Iniciar Sesión</h4>
-                </div>
-                <div class="card-body">
-                    <?php if (!empty($errors)): ?>
-                        <div class="alert alert-danger">
-                            <ul class="mb-0">
-                                <?php foreach ($errors as $error): ?>
-                                    <li><?php echo $error; ?></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php endif; ?>
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <img src="<?php echo ASSETS_URL; ?>/images/logo.png" alt="Academee">
+            <h1>Iniciar Sesión</h1>
+            <p>Ingresa tus credenciales para continuar</p>
+        </div>
 
-                    <form method="POST" action="">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
-                    </form>
-                    <hr>
-                    <p class="mb-0">¿No tienes cuenta? <a href="<?php echo BASE_URL; ?>/register.php">Regístrate aquí</a></p>
-                </div>
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $error): ?>
+                        <li><?php echo $error; ?></li>
+                    <?php endforeach; ?>
+                </ul>
             </div>
+        <?php endif; ?>
+
+        <form class="auth-form" method="POST" action="">
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <input type="email" id="email" name="email" required 
+                       value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>¿No tienes una cuenta? <a href="register.php">Regístrate</a></p>
+            <p><a href="forgot-password.php">¿Olvidaste tu contraseña?</a></p>
         </div>
     </div>
 </div>
