@@ -162,4 +162,193 @@ async function exportToExcel() {
         console.error('Error al exportar Excel:', error);
         alert('Error al generar el Excel');
     }
-} 
+}
+
+class ReportManager {
+    constructor() {
+        this.chart = null;
+        this.reportType = document.getElementById('type').value;
+        this.data = window.reportData || [];
+        
+        this.init();
+    }
+    
+    init() {
+        this.createChart();
+        
+        // Manejar cambios en los filtros
+        document.querySelectorAll('.filters-form select, .filters-form input').forEach(input => {
+            input.addEventListener('change', () => {
+                if (input.id === 'type') return;
+                document.querySelector('.filters-form').submit();
+            });
+        });
+    }
+    
+    createChart() {
+        const ctx = document.getElementById('report-chart');
+        if (!ctx) return;
+        
+        switch (this.reportType) {
+            case 'course_performance':
+                this.createCoursePerformanceChart();
+                break;
+            case 'user_activity':
+                this.createUserActivityChart();
+                break;
+            case 'enrollment_trends':
+                this.createEnrollmentTrendsChart();
+                break;
+            case 'exam_statistics':
+                this.createExamStatisticsChart();
+                break;
+        }
+    }
+    
+    createCoursePerformanceChart() {
+        const labels = this.data.map(item => item.course_name);
+        const datasets = [
+            {
+                label: 'Estudiantes',
+                data: this.data.map(item => item.total_students),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1
+            },
+            {
+                label: 'Tasa de Completitud (%)',
+                data: this.data.map(item => item.completion_rate),
+                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                borderColor: 'rgb(75, 192, 192)',
+                borderWidth: 1
+            }
+        ];
+        
+        this.chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+    
+    createUserActivityChart() {
+        const labels = this.data.map(item => item.date);
+        const datasets = [
+            {
+                label: 'Usuarios Activos',
+                data: this.data.map(item => item.active_users),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1,
+                fill: true
+            }
+        ];
+        
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+    
+    createEnrollmentTrendsChart() {
+        const labels = this.data.map(item => item.period);
+        const datasets = [
+            {
+                label: 'Inscripciones',
+                data: this.data.map(item => item.total_enrollments),
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1,
+                fill: true
+            }
+        ];
+        
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+    
+    createExamStatisticsChart() {
+        const labels = this.data.map(item => item.exam_title);
+        const datasets = [
+            {
+                label: 'Aprobados',
+                data: this.data.map(item => item.passed_count),
+                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                borderColor: 'rgb(75, 192, 192)',
+                borderWidth: 1
+            },
+            {
+                label: 'Reprobados',
+                data: this.data.map(item => item.failed_count),
+                backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                borderColor: 'rgb(255, 99, 132)',
+                borderWidth: 1
+            }
+        ];
+        
+        this.chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+}
+
+function exportReport() {
+    const table = document.querySelector('.report-table table');
+    if (!table) return;
+    
+    const rows = Array.from(table.querySelectorAll('tr'));
+    let csv = [];
+    
+    rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('th, td'));
+        const rowData = cells.map(cell => {
+            let text = cell.textContent.trim();
+            // Escapar comillas y encerrar en comillas si contiene comas
+            if (text.includes(',') || text.includes('"')) {
+                text = `"${text.replace(/"/g, '""')}"`;
+            }
+            return text;
+        });
+        csv.push(rowData.join(','));
+    });
+    
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'reporte.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+document.addEventListener('DOMContentLoaded', () => new ReportManager()); 
