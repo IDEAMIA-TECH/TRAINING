@@ -95,21 +95,97 @@ function checkSystemRequirements() {
 // Probar conexión a base de datos
 function testDatabaseConnection($host, $name, $user, $pass) {
     try {
-        // Intentar conectar directamente a la base de datos
-        $dsn = "mysql:host=$host;dbname=$name;charset=utf8mb4";
+        // Primero intentar conectar sin especificar base de datos
+        $dsn = "mysql:host=$host;charset=utf8mb4";
         $db = new PDO($dsn, $user, $pass);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        // Verificar si podemos realizar operaciones básicas
-        $db->query("SELECT 1");
+        // Verificar si la base de datos existe
+        $stmt = $db->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name'");
+        $dbExists = $stmt->fetch();
         
+        if (!$dbExists) {
+            return "La base de datos '$name' no existe. Por favor:\n" .
+                   "1. Ve a cPanel > MySQL Databases\n" .
+                   "2. Crea una nueva base de datos con este nombre\n" .
+                   "3. Asigna todos los privilegios al usuario";
+        }
+
+        // Intentar conectar a la base de datos específica
+        $dsn = "mysql:host=$host;dbname=$name;charset=utf8mb4";
+        $db = new PDO($dsn, $user, $pass);
+        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        // Verificar permisos del usuario
+        $permissions = [
+            'SELECT' => false,
+            'INSERT' => false,
+            'UPDATE' => false,
+            'DELETE' => false,
+            'CREATE' => false,
+            'ALTER' => false
+        ];
+
+        try {
+            // Probar SELECT
+            $db->query("SELECT 1");
+            $permissions['SELECT'] = true;
+
+            // Probar CREATE
+            $db->query("CREATE TEMPORARY TABLE test_permissions (id INT)");
+            $permissions['CREATE'] = true;
+
+            // Probar INSERT
+            $db->query("INSERT INTO test_permissions VALUES (1)");
+            $permissions['INSERT'] = true;
+
+            // Probar UPDATE
+            $db->query("UPDATE test_permissions SET id = 2");
+            $permissions['UPDATE'] = true;
+
+            // Probar DELETE
+            $db->query("DELETE FROM test_permissions");
+            $permissions['DELETE'] = true;
+
+            // Probar ALTER
+            $db->query("ALTER TABLE test_permissions ADD COLUMN test VARCHAR(10)");
+            $permissions['ALTER'] = true;
+
+        } catch (PDOException $e) {
+            // Si alguna prueba falla, continuamos con las siguientes
+        }
+
+        // Verificar si faltan permisos
+        $missingPermissions = array_filter($permissions, function($hasPermission) {
+            return !$hasPermission;
+        });
+
+        if (!empty($missingPermissions)) {
+            return "El usuario no tiene todos los permisos necesarios. Faltan:\n" .
+                   implode(", ", array_keys($missingPermissions)) . "\n\n" .
+                   "Por favor, asigna TODOS los privilegios al usuario en cPanel > MySQL Databases > Add User To Database";
+        }
+
         return true;
     } catch (PDOException $e) {
-        return "Error de conexión: Verifica que:\n" .
-               "1. La base de datos '$name' exista en cPanel\n" .
-               "2. El usuario '$user' tenga todos los privilegios asignados\n" .
-               "3. Las credenciales sean correctas\n\n" .
-               "Mensaje de error: " . $e->getMessage();
+        $error = $e->getMessage();
+        
+        // Mensajes de error más amigables
+        if (strpos($error, 'Access denied') !== false) {
+            return "Acceso denegado. Verifica:\n" .
+                   "1. El nombre de usuario y contraseña son correctos\n" .
+                   "2. El usuario tiene permiso para conectarse desde este host\n" .
+                   "3. El usuario tiene los privilegios necesarios";
+        }
+        
+        if (strpos($error, "Unknown database") !== false) {
+            return "La base de datos no existe. Por favor:\n" .
+                   "1. Ve a cPanel > MySQL Databases\n" .
+                   "2. Crea una nueva base de datos con este nombre\n" .
+                   "3. Asigna todos los privilegios al usuario";
+        }
+
+        return "Error de conexión: $error";
     }
 }
 
@@ -125,18 +201,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($db_host) || empty($db_name) || empty($db_user)) {
                 $error = "Todos los campos son requeridos";
             } else {
-                $db_test = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
-                if ($db_test === true) {
-                    $_SESSION['db_config'] = [
-                        'host' => $db_host,
-                        'name' => $db_name,
-                        'user' => $db_user,
-                        'pass' => $db_pass
-                    ];
-                    header('Location: install.php?step=3');
-                    exit;
+                // Validar formato de los datos
+                if (!filter_var($db_host, FILTER_VALIDATE_DOMAIN) && $db_host !== 'localhost') {
+                    $error = "El host no tiene un formato válido";
+                } else if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
+                    $error = "El nombre de la base de datos solo puede contener letras, números y guiones bajos";
                 } else {
-                    $error = "Error de conexión: " . $db_test;
+                    $db_test = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
+                    if ($db_test === true) {
+                        $_SESSION['db_config'] = [
+                            'host' => $db_host,
+                            'name' => $db_name,
+                            'user' => $db_user,
+                            'pass' => $db_pass
+                        ];
+                        header('Location: install.php?step=3');
+                        exit;
+                    } else {
+                        $error = $db_test;
+                    }
                 }
             }
             break;
