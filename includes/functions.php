@@ -1,17 +1,23 @@
 <?php
-function sanitize_input($data) {
-    $data = trim($data);
-    $data = stripslashes($data);
-    $data = htmlspecialchars($data);
-    return $data;
-}
-
+// Funciones de utilidad
 function is_authenticated() {
     return isset($_SESSION['user_id']);
 }
 
 function is_admin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+}
+
+function sanitize_input($data) {
+    return htmlspecialchars(trim($data));
+}
+
+function format_date($date, $format = 'd/m/Y') {
+    return date($format, strtotime($date));
+}
+
+function format_currency($amount) {
+    return '$' . number_format($amount, 2);
 }
 
 function redirect($path) {

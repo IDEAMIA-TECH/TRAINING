@@ -31,18 +31,13 @@ try {
 }
 
 // Variables globales
-$user_authenticated = isset($_SESSION['user_id']);
-$user_is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$user_authenticated = is_authenticated();
+$user_is_admin = is_admin();
 
 // Función de redirección
 function redirect($path) {
     header("Location: " . BASE_URL . $path);
     exit;
-}
-
-// Función para sanitizar input
-function sanitize_input($data) {
-    return htmlspecialchars(trim($data));
 }
 
 require_once __DIR__ . '/../config/database.php';
