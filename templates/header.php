@@ -19,24 +19,24 @@
 <body>
     <header class="header">
         <nav class="nav-container">
-            <a href="<?php echo BASE_URL; ?>/" class="logo">
+            <a href="<?php echo BASE_URL; ?>/index.php" class="logo">
                 <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="Academee">
             </a>
             <div class="nav-menu">
-                <a href="<?php echo BASE_URL; ?>/" class="nav-link">HOME</a>
-                <a href="<?php echo BASE_URL; ?>/features" class="nav-link">FEATURES</a>
-                <a href="<?php echo BASE_URL; ?>/courses" class="nav-link">COURSES</a>
-                <a href="<?php echo BASE_URL; ?>/teachers" class="nav-link">TEACHERS</a>
-                <a href="<?php echo BASE_URL; ?>/blog" class="nav-link">BLOG</a>
-                <a href="<?php echo BASE_URL; ?>/store" class="nav-link">STORE</a>
+                <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link">HOME</a>
+                <a href="<?php echo BASE_URL; ?>/features.php" class="nav-link">FEATURES</a>
+                <a href="<?php echo BASE_URL; ?>/courses.php" class="nav-link">COURSES</a>
+                <a href="<?php echo BASE_URL; ?>/teachers.php" class="nav-link">TEACHERS</a>
+                <a href="<?php echo BASE_URL; ?>/blog.php" class="nav-link">BLOG</a>
+                <a href="<?php echo BASE_URL; ?>/store.php" class="nav-link">STORE</a>
                 <?php if ($user_authenticated): ?>
-                    <a href="<?php echo BASE_URL; ?>/cart" class="nav-link">
+                    <a href="<?php echo BASE_URL; ?>/cart.php" class="nav-link">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count"><?php echo $cart_count; ?></span>
                     </a>
-                    <a href="<?php echo BASE_URL; ?>/dashboard" class="btn btn-primary">Dashboard</a>
+                    <a href="<?php echo BASE_URL; ?>/dashboard.php" class="btn btn-primary">Dashboard</a>
                 <?php else: ?>
-                    <a href="<?php echo BASE_URL; ?>/login" class="btn btn-primary">Login</a>
+                    <a href="<?php echo BASE_URL; ?>/login.php" class="btn btn-primary">Login</a>
                 <?php endif; ?>
             </div>
         </nav>
