@@ -1,331 +1,103 @@
-# Documentación del Flujo y Características del Sitio Web
+# 📖 Documentación del Flujo y Características del Sitio Web para Cursos Presenciales
 
-## 1. Introducción
+## 📌 1. Introducción
+Este documento detalla el flujo de funcionamiento y las características principales del sitio web diseñado para la gestión de cursos presenciales. La plataforma permite a los administradores gestionar entrenamientos y a los clientes registrarse y pagar cursos a través de **PayPal o Stripe**.
 
-Este documento describe el flujo y las características del sitio web para la gestión de entrenamientos en línea, permitiendo a los clientes registrarse, pagar y acceder a entrenamientos, así como a los administradores gestionar los cursos y usuarios.
+---
 
-## 2. Flujo del Usuario
+## 🚀 2. Flujo del Usuario
 
-#Tech Stack
+## tech stack
+frontend: html, css, javascript
+backend: php, mysql
+database: mysql
+hosting: cpanel
+domain: devgdlhost.com
 
-- backend: php, 
-- frontend: html, css, javascript
-- database: mysql
-- hosting: cpanel
-- domain: devgdlhost.com
-- whatsapp: +52 1 33 16129810
-- Extras:
-    - Google Analytics
-    - PWA (Progressive Web App): Para permitir funcionamiento offline en dispositivos móviles.
-    - Integración con WhatsApp: API de WhatsApp Business para notificaciones directas a clientes.
+### 🏠 2.1. Página de Inicio
+- El usuario accede a la página principal.
+- Se muestra un **banner rotatorio** con entrenamientos próximos.
+  - El administrador puede **cambiar imágenes y enlaces de acción** en este banner.
+- Se presenta una **sección de cursos futuros**, categorizados según los criterios definidos por el administrador.
 
+### 🔑 2.2. Registro e Inicio de Sesión del Cliente
+- Los usuarios pueden **registrarse** con su correo electrónico y datos personales.
+- Una vez registrados, pueden **iniciar sesión** para:
+  - Visualizar los cursos en los que están inscritos.
+  - Consultar el historial de pagos.
 
+### 📅 2.3. Exploración y Registro a Cursos
+- Los usuarios pueden navegar por los cursos disponibles con la siguiente información:
+  - **Fecha y hora** del curso.
+  - **Cupo disponible**.
+  - **Costo del curso**.
+  - **Temario y galería de imágenes**.
+- Pueden **registrarse** en un curso y **realizar el pago en línea** mediante **PayPal o Stripe**.
+- Una vez realizado el pago, el usuario recibe un **correo de confirmación** con los detalles del curso y el comprobante de pago.
+- El administrador es notificado automáticamente sobre el nuevo registro.
 
-### 2.1. Inicio de la Experiencia
+### 🎓 2.4. Panel del Cliente
+- El usuario tiene acceso a:
+  - Su lista de cursos registrados.
+  - Un **calendario** con los cursos futuros.
+  - La opción de inscribirse en nuevos cursos y gestionar sus pagos.
 
-- El cliente accede a la página de inicio
-- Visualiza un banner rotatorio con entrenamientos futuros
-  - Este banner cuenta con un panel de administración para cambiar imágenes y enlaces de acción
+---
 
-### 2.2. Exploración de Cursos
+## 🛠️ 3. Flujo del Administrador
 
-- En la página de inicio, se muestra una sección de cursos futuros
-  - Los cursos se organizan en secciones definidas por el administrador
-- Cada curso muestra:
-  - Fecha y hora del entrenamiento
-  - Cantidad de cupos disponibles
-  - Costo del curso
-  - Temario y fotos opcionales
+### 🔒 3.1. Panel de Administración
+- Acceso restringido mediante **credenciales de administrador**.
 
-### 2.3. Registro y Pago
+### 🎭 3.2. Gestión del Banner Rotatorio
+- Funcionalidad para **agregar, modificar o eliminar imágenes y enlaces** en el banner de la página principal.
 
-- El cliente puede registrar una cuenta en la plataforma
-- Puede inscribirse en un curso
-- Tiene la opción de pagar en línea mediante PayPal o Stripe
-- Tras la inscripción y pago, el sistema envía un correo de confirmación al cliente y al administrador con:
-  - Datos del cliente
-  - Fecha de registro
-  - Curso seleccionado
+### 📚 3.3. Gestión de Cursos
+- Posibilidad de **crear, modificar y eliminar cursos**.
+- Los cursos deben incluir:
+  - **Nombre del curso**.
+  - **Fecha y hora**.
+  - **Capacidad máxima de usuarios**.
+  - **Costo del curso**.
+  - **Temario y galería de imágenes**.
 
-### 2.4. Panel del Cliente
+### 👥 3.4. Gestión de Clientes Registrados
+- Visualización de la lista de clientes registrados.
+- **Calendario interactivo** con los cursos programados y la lista de inscritos.
+- **Reportes de pago**, con detalles de clientes que han pagado y fechas de los entrenamientos.
+- **Envío de correos masivos** a usuarios registrados en un curso específico.
 
-El cliente puede acceder a su panel personal donde encontrará:
+---
 
-- Cursos inscritos y precio pagado
-- Calendario con cursos disponibles
-- Opción para registrarse y pagar cursos desde el calendario
+## 📩 4. Notificaciones Automáticas
+El sistema envía notificaciones automáticas para mantener informados a los usuarios y administradores:
 
-## 3. Flujo del Administrador
+- **Al registrarse en un curso**: 
+  - El usuario recibe un **correo de confirmación** con los detalles de su inscripción y pago.
+  - El administrador recibe una **notificación con los datos del usuario y el curso**.
+- **Correos masivos**: 
+  - El administrador puede enviar mensajes a todos los usuarios inscritos en un curso.
 
-### 3.1. Panel de Administración
+---
 
-El administrador tiene acceso a un panel de control con las siguientes funcionalidades:
+## 💻 5. Requisitos Técnicos
+Para garantizar un rendimiento óptimo del sistema, se establecen los siguientes requisitos técnicos:
 
-- Lista de clientes registrados
-- Creación de nuevos cursos con:
-  - Fecha y hora
-  - Descripción del curso
-  - Cupo máximo
-  - Costo
-  - Foto y temario
-- Gestión del calendario de entrenamientos programados
+- **Diseño 100% responsivo** para computadoras y dispositivos móviles.
+- **Integración con PayPal y Stripe** para pagos en línea seguros.
+- **Panel de administración intuitivo** para gestionar cursos, clientes y reportes.
+- **Base de datos optimizada** para almacenar información de clientes y cursos de forma segura.
+- **Sistema automatizado de notificaciones** para mantener la comunicación fluida con los usuarios.
 
-### 3.2. Reportes y Notificaciones
+---
 
-El calendario administrativo muestra:
+## 🎯 6. Conclusión
+Este sistema está diseñado para **facilitar la administración y gestión de cursos presenciales**, proporcionando una plataforma eficiente para que los clientes puedan **registrarse y pagar de manera rápida y segura**, mientras que los administradores pueden **gestionar cursos y usuarios de forma óptima**.
 
-- Entrenamientos programados
-- Clientes registrados por curso
-- Reporte de pagos recibidos y fechas
-- Sistema de envío de correos masivos a usuarios registrados en cursos específicos
+---
 
-## 4. Características del Sitio Web
+📌 **Notas Adicionales:**
+- Posibles mejoras futuras incluyen la **implementación de notificaciones por SMS** y la integración con **Google Calendar** para sincronización de eventos.
+- Se recomienda implementar **métricas de seguimiento** para analizar el rendimiento de la plataforma.
 
-### 4.1. Responsividad
-
-El sitio web es 100% responsivo, optimizado para:
-
-- Dispositivos móviles
-- Tablets
-- Computadoras de escritorio
-
-### 4.2. Seguridad y Pagos
-
-- Integración con múltiples métodos de pago:
-  - PayPal
-  - Stripe
-- Sistema seguro de registro de usuarios
-- Sistema automatizado de confirmaciones por correo electrónico
-
-### 4.3. Administración Dinámica
-
-- Panel de administración completo
-- Control de cupos y reportes
-- Gestión de entrenamientos por usuario
-
-## 5. Conclusión
-
-Este flujo asegura una navegación intuitiva y eficiente tanto para los clientes como para los administradores. La plataforma facilita la inscripción, pago y gestión de entrenamientos de manera organizada y automatizada.
-
-
-## 6. Estructura de la Base de Datos
-
-### 6.1. Tablas Principales
-
-#### Users
-```sql
-CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    phone VARCHAR(20),
-    role ENUM('admin', 'client') DEFAULT 'client',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
-
-#### Courses
-```sql
-CREATE TABLE courses (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    max_capacity INT NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
-    start_date DATETIME NOT NULL,
-    end_date DATETIME NOT NULL,
-    syllabus TEXT,
-    image_url VARCHAR(255),
-    status ENUM('active', 'cancelled', 'completed') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
-
-#### Enrollments
-```sql
-CREATE TABLE enrollments (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    course_id INT NOT NULL,
-    payment_status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
-    payment_method ENUM('paypal', 'stripe') NOT NULL,
-    payment_amount DECIMAL(10,2) NOT NULL,
-    transaction_id VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (course_id) REFERENCES courses(id)
-);
-```
-
-### 6.2. Tablas Complementarias
-
-#### Banner_Images
-```sql
-CREATE TABLE banner_images (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    image_url VARCHAR(255) NOT NULL,
-    title VARCHAR(100),
-    action_url VARCHAR(255),
-    active BOOLEAN DEFAULT true,
-    order_index INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
-
-#### Course_Materials
-```sql
-CREATE TABLE course_materials (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    course_id INT NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    file_url VARCHAR(255) NOT NULL,
-    file_type ENUM('pdf', 'image', 'video') NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(id)
-);
-```
-
-#### Notifications
-```sql
-CREATE TABLE notifications (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    course_id INT,
-    title VARCHAR(100) NOT NULL,
-    message TEXT NOT NULL,
-    type ENUM('email', 'whatsapp') NOT NULL,
-    status ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_at TIMESTAMP NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (course_id) REFERENCES courses(id)
-);
-```
-
-### 6.3. Índices Importantes
-```sql
--- Índices para optimizar búsquedas frecuentes
-ALTER TABLE courses ADD INDEX idx_start_date (start_date);
-ALTER TABLE enrollments ADD INDEX idx_payment_status (payment_status);
-ALTER TABLE notifications ADD INDEX idx_status_type (status, type);
-ALTER TABLE users ADD INDEX idx_email (email);
-```
-
-### 6.4. Relaciones y Restricciones
-
-- La tabla `enrollments` conecta usuarios con cursos (relación muchos a muchos)
-- Cada curso puede tener múltiples materiales asociados
-- Las notificaciones pueden estar asociadas a un usuario y opcionalmente a un curso
-- Los banners tienen un orden específico para su visualización
-- Se mantiene un registro de timestamps para auditoría
-
-## 7. Estructura de Carpetas del Proyecto
-
-```
-project_root/
-├── assets/
-│   ├── css/
-│   │   ├── style.css
-│   │   └── responsive.css
-│   ├── js/
-│   │   ├── main.js
-│   │   ├── calendar.js
-│   │   └── payment.js
-│   └── images/
-│       ├── banners/
-│       └── courses/
-├── config/
-│   ├── database.php
-│   ├── constants.php
-│   └── settings.php
-├── includes/
-│   ├── header.php
-│   ├── footer.php
-│   └── functions.php
-├── admin/
-│   ├── dashboard.php
-│   ├── courses/
-│   │   ├── create.php
-│   │   ├── edit.php
-│   │   └── list.php
-│   ├── users/
-│   │   ├── manage.php
-│   │   └── reports.php
-│   └── assets/
-│       ├── css/
-│       └── js/
-├── client/
-│   ├── dashboard.php
-│   ├── profile.php
-│   └── courses/
-│       ├── enroll.php
-│       └── my-courses.php
-├── api/
-│   ├── payments/
-│   │   ├── paypal.php
-│   │   └── stripe.php
-│   └── notifications/
-│       ├── email.php
-│       └── whatsapp.php
-├── uploads/
-│   ├── courses/
-│   ├── materials/
-│   └── temp/
-├── vendor/
-├── docs/
-│   ├── context.md
-│   └── api.md
-├── .htaccess
-├── index.php
-└── README.md
-```
-
-### 7.1. Descripción de Carpetas
-
-#### assets/
-- Archivos estáticos del frontend
-- CSS, JavaScript e imágenes
-- Recursos multimedia del sitio
-
-#### config/
-- Configuraciones globales
-- Conexión a base de datos
-- Constantes y settings
-
-#### includes/
-- Componentes PHP reutilizables
-- Headers y footers
-- Funciones helpers
-
-#### admin/
-- Panel de administración
-- Gestión de cursos
-- Gestión de usuarios
-- Assets específicos del admin
-
-#### client/
-- Panel del cliente
-- Perfil de usuario
-- Gestión de inscripciones
-
-#### api/
-- Endpoints para pagos
-- Integraciones con servicios
-- Notificaciones
-
-#### uploads/
-- Archivos subidos por usuarios
-- Materiales de cursos
-- Directorio temporal
-
-#### vendor/
-- Dependencias de terceros
-- Librerías externas
-
-#### docs/
-- Documentación del proyecto
-- Especificaciones técnicas
+✨ *Un sistema diseñado para optimizar la gestión de entrenamientos y mejorar la experiencia del usuario.* 🚀
