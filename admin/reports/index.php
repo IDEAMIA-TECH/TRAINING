@@ -67,27 +67,40 @@ try {
     <h2 class="mb-4">Panel de Reportes y Estadísticas</h2>
 
     <!-- Botones de exportación -->
-    <div class="mb-4">
-        <form class="row g-3 align-items-end">
-            <div class="col-auto">
-                <label class="form-label">Fecha Inicio</label>
-                <input type="date" class="form-control" name="start_date" 
-                       value="<?php echo date('Y-m-d', strtotime('-30 days')); ?>">
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Fecha Fin</label>
-                <input type="date" class="form-control" name="end_date" 
-                       value="<?php echo date('Y-m-d'); ?>">
-            </div>
-            <div class="col-auto">
-                <a href="export_pdf.php" class="btn btn-danger" target="_blank">
-                    <i class="bi bi-file-pdf"></i> Exportar PDF
-                </a>
-                <a href="export_excel.php" class="btn btn-success" target="_blank">
-                    <i class="bi bi-file-excel"></i> Exportar Excel
-                </a>
-            </div>
-        </form>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Exportar Datos</h5>
+        </div>
+        <div class="card-body">
+            <form action="../export.php" method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <select name="type" class="form-select" required>
+                        <option value="">Seleccionar datos...</option>
+                        <option value="users">Usuarios</option>
+                        <option value="courses">Cursos</option>
+                        <option value="payments">Pagos</option>
+                        <option value="registrations">Inscripciones</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="format" class="form-select">
+                        <option value="excel">Excel</option>
+                        <option value="csv">CSV</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="date_from" class="form-control" placeholder="Fecha desde">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" name="date_to" class="form-control" placeholder="Fecha hasta">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-download"></i> Exportar
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <?php if (isset($error)): ?>

@@ -3,46 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo SITE_NAME; ?></title>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/styles.css">
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title><?php echo $page_title ?? 'Academee - Cursos Presenciales'; ?></title>
+    
+    <!-- Fuentes -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <?php if (strpos($_SERVER['REQUEST_URI'], '/admin/') !== false): ?>
+    <link rel="stylesheet" href="/assets/css/admin.css">
+    <?php endif; ?>
+    
+    <!-- Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="<?php echo BASE_URL; ?>"><?php echo SITE_NAME; ?></a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo BASE_URL; ?>/courses.php">Cursos</a>
-                    </li>
-                    <?php if ($user_authenticated): ?>
-                        <?php if ($is_admin): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="<?php echo BASE_URL; ?>/admin">Panel Admin</a>
-                            </li>
-                        <?php endif; ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo BASE_URL; ?>/profile.php">Mi Perfil</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo BASE_URL; ?>/logout.php">Cerrar Sesión</a>
-                        </li>
-                    <?php else: ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo BASE_URL; ?>/login.php">Iniciar Sesión</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="<?php echo BASE_URL; ?>/register.php">Registrarse</a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
+    <header class="header">
+        <nav class="nav-container">
+            <a href="/" class="logo">
+                <img src="/assets/images/logo.png" alt="Academee">
+            </a>
+            <div class="nav-menu">
+                <a href="/" class="nav-link">HOME</a>
+                <a href="/features" class="nav-link">FEATURES</a>
+                <a href="/courses" class="nav-link">COURSES</a>
+                <a href="/teachers" class="nav-link">TEACHERS</a>
+                <a href="/blog" class="nav-link">BLOG</a>
+                <a href="/store" class="nav-link">STORE</a>
+                <?php if ($user_authenticated): ?>
+                    <a href="/dashboard" class="btn btn-primary">Dashboard</a>
+                <?php else: ?>
+                    <a href="/login" class="btn btn-primary">Login</a>
+                <?php endif; ?>
             </div>
-        </div>
-    </nav>
+        </nav>
+    </header>
 </body>
 </html> 
