@@ -242,18 +242,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
 
         case 4:
-            try {
-                if (!isset($_SESSION['db_config']) || !isset($_SESSION['site_config'])) {
-                    throw new Exception("Información de configuración incompleta");
-                }
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                try {
+                    // Crear directorio config si no existe
+                    if (!file_exists('config')) {
+                        if (!mkdir('config', 0755, true)) {
+                            throw new Exception("No se pudo crear el directorio config");
+                        }
+                    }
 
-                // Crear directorio config si no existe
-                if (!file_exists('config')) {
-                    mkdir('config', 0755, true);
-                }
-                
-                // Configuración principal (config.php)
-                $config_content = "<?php
+                    // Verificar permisos del directorio config
+                    if (!is_writable('config')) {
+                        chmod('config', 0755);
+                        if (!is_writable('config')) {
+                            throw new Exception("El directorio config no tiene permisos de escritura");
+                        }
+                    }
+
+                    // Verificar que tenemos los datos necesarios
+                    if (!isset($_SESSION['db_config']) || 
+                        !isset($_SESSION['site_config'])) {
+                        throw new Exception("Faltan datos de configuración. Por favor, vuelve a empezar la instalación.");
+                    }
+
+                    // Configuración principal (config.php)
+                    $config_content = "<?php
 // Configuración de Base de Datos
 define('DB_HOST', '{$_SESSION['db_config']['host']}');
 define('DB_NAME', '{$_SESSION['db_config']['name']}');
@@ -283,180 +296,59 @@ define('UPLOAD_DIR', __DIR__ . '/uploads');
 define('CACHE_DIR', __DIR__ . '/cache');
 define('LOG_DIR', __DIR__ . '/logs');
 ";
-                
-                // Verificar que tenemos los datos necesarios
-                if (!isset($_SESSION['db_config']) || 
-                    !isset($_SESSION['db_config']['host']) || 
-                    !isset($_SESSION['db_config']['name']) || 
-                    !isset($_SESSION['db_config']['user']) || 
-                    !isset($_SESSION['db_config']['pass'])) {
-                    throw new Exception("Faltan datos de configuración de la base de datos");
-                }
-
-                // Escribir el archivo de configuración
-                if (!file_put_contents('config/config.php', $config_content)) {
-                    throw new Exception("No se pudo escribir el archivo de configuración");
-                }
-
-                // Verificar que el archivo se creó correctamente
-                if (!file_exists('config/config.php')) {
-                    throw new Exception("No se pudo crear el archivo de configuración");
-                }
-
-                // Verificar que el archivo es legible
-                if (!is_readable('config/config.php')) {
-                    throw new Exception("El archivo de configuración no es legible");
-                }
-
-                // Verificar que las constantes se definieron correctamente
-                require 'config/config.php';
-                if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
-                    throw new Exception("Las constantes de la base de datos no se definieron correctamente");
-                }
-
-                // Intentar conectar a la base de datos con las nuevas constantes
-                try {
-                    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-                    $db = new PDO($dsn, DB_USER, DB_PASS);
-                    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                } catch (PDOException $e) {
-                    throw new Exception("No se pudo conectar a la base de datos con la nueva configuración: " . $e->getMessage());
-                }
-
-                // Crear archivo mail.php
-                $mail_content = "<?php
-return [
-    'host' => 'smtp.gmail.com',
-    'port' => 587,
-    'username' => '',
-    'password' => '',
-    'from' => '{$_SESSION['site_config']['email']}',
-    'from_name' => '{$_SESSION['site_config']['name']}',
-    'encryption' => 'tls'
-];
-";
-                if (!file_put_contents('config/mail.php', $mail_content)) {
-                    throw new Exception("No se pudo escribir la configuración del correo");
-                }
-
-                // Configuración de la aplicación (app.php)
-                $app_content = "<?php
-return [
-    'name' => '{$_SESSION['site_config']['name']}',
-    'url' => '{$_SESSION['site_config']['url']}',
-    'admin_email' => '{$_SESSION['site_config']['email']}',
-    'timezone' => 'America/Mexico_City',
-    'locale' => 'es',
-    'env' => 'production',
-    'debug' => false,
-    'maintenance_mode' => false,
-    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.',
-    'session_lifetime' => 3600,
-    'upload_max_size' => 5242880,
-    'allowed_file_types' => ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
-    'pagination' => [
-        'per_page' => 10,
-        'max_pages' => 5
-    ],
-    'security' => [
-        'password_min_length' => 8,
-        'rate_limit' => 60,
-        'rate_limit_window' => 60
-    ]
-];";
-                if (!file_put_contents('config/app.php', $app_content)) {
-                    throw new Exception("No se pudo escribir la configuración de la aplicación");
-                }
-
-                // Verificar que los archivos se crearon correctamente
-                if (!file_exists('config/config.php') || 
-                    !file_exists('config/database.php') || 
-                    !file_exists('config/app.php')) {
-                    throw new Exception("No se pudieron crear todos los archivos de configuración");
-                }
-
-                // Verificar que los archivos son legibles
-                if (!is_readable('config/config.php') || 
-                    !is_readable('config/database.php') || 
-                    !is_readable('config/app.php')) {
-                    throw new Exception("Los archivos de configuración no son legibles");
-                }
-
-                // Verificar que los archivos tienen el contenido correcto
-                foreach (['config/config.php', 'config/database.php', 'config/app.php'] as $file) {
-                    if (filesize($file) === 0) {
-                        throw new Exception("El archivo $file está vacío");
-                    }
-                }
-
-                // Importar base de datos
-                try {
-                    $db = new PDO(
-                        "mysql:host={$_SESSION['db_config']['host']};dbname={$_SESSION['db_config']['name']};charset=utf8mb4",
-                        $_SESSION['db_config']['user'],
-                        $_SESSION['db_config']['pass']
-                    );
-                    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-                    // Leer el archivo SQL
-                    $sql = file_get_contents('database/schema.sql');
-                    
-                    // Eliminar cualquier sentencia CREATE DATABASE o USE
-                    $sql = preg_replace('/CREATE\s+DATABASE.*?;/is', '', $sql);
-                    $sql = preg_replace('/USE\s+`?\w+`?;/i', '', $sql);
-                    
-                    // Dividir en consultas individuales
-                    $queries = array_filter(
-                        array_map(
-                            'trim',
-                            explode(';', $sql)
-                        )
-                    );
-
-                    // Ejecutar cada consulta
-                    foreach ($queries as $query) {
-                        if (!empty($query)) {
-                            try {
-                                $db->exec($query);
-                            } catch (PDOException $e) {
-                                // Ignorar errores de "tabla ya existe"
-                                if ($e->getCode() != '42S01') {
-                                    throw new Exception(
-                                        "Error en consulta: " . substr($query, 0, 100) . "...\n" . 
-                                        "Código: " . $e->getCode() . "\n" . 
-                                        "Error: " . $e->getMessage()
-                                    );
-                                }
-                            }
-                        }
+                    // Escribir config.php
+                    if (file_put_contents('config/config.php', $config_content) === false) {
+                        throw new Exception("No se pudo escribir el archivo config.php");
                     }
 
-                    // Crear usuario administrador
-                    $stmt = $db->prepare("
-                        INSERT INTO users (name, email, password, role, created_at) 
-                        VALUES ('Administrator', ?, ?, 'admin', NOW())
-                    ");
-                    $stmt->execute([
-                        $_SESSION['site_config']['email'],
-                        $_SESSION['site_config']['password']
-                    ]);
+                    // Verificar que el archivo se creó correctamente
+                    if (!file_exists('config/config.php')) {
+                        throw new Exception("El archivo config.php no se creó");
+                    }
 
-                } catch (PDOException $e) {
-                    throw new Exception(
-                        "Error en la base de datos. Verifica que:\n" .
-                        "1. El usuario tenga TODOS los privilegios en la base de datos\n" .
-                        "2. La base de datos esté vacía\n" .
-                        "3. Las credenciales sean correctas\n\n" .
-                        "Error específico: " . $e->getMessage()
-                    );
+                    // Verificar que el archivo es legible
+                    if (!is_readable('config/config.php')) {
+                        throw new Exception("El archivo config.php no es legible");
+                    }
+
+                    // Verificar el contenido del archivo
+                    $written_content = file_get_contents('config/config.php');
+                    if (empty($written_content)) {
+                        throw new Exception("El archivo config.php está vacío");
+                    }
+
+                    // Intentar incluir el archivo para verificar la sintaxis
+                    try {
+                        require 'config/config.php';
+                    } catch (Error $e) {
+                        throw new Exception("Error en la sintaxis de config.php: " . $e->getMessage());
+                    }
+
+                    // Verificar que las constantes se definieron
+                    if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
+                        throw new Exception("Las constantes de base de datos no se definieron correctamente");
+                    }
+
+                    // Intentar conectar a la base de datos
+                    try {
+                        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                        $db = new PDO($dsn, DB_USER, DB_PASS);
+                        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    } catch (PDOException $e) {
+                        throw new Exception("Error al conectar con la base de datos: " . $e->getMessage());
+                    }
+
+                    // Si todo salió bien
+                    $success = true;
+                    
+                } catch (Exception $e) {
+                    $error = "Error durante la instalación: " . $e->getMessage();
+                    
+                    // Limpiar archivos si hubo error
+                    if (file_exists('config/config.php')) {
+                        unlink('config/config.php');
+                    }
                 }
-
-                // Limpiar sesión
-                session_destroy();
-                
-                $success = "¡Instalación completada con éxito!";
-            } catch (Exception $e) {
-                $error = "Error durante la instalación: " . $e->getMessage();
             }
             break;
     }
