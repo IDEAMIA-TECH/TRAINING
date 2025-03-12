@@ -199,29 +199,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (empty($db_host) || empty($db_name) || empty($db_user)) {
                 $error = "Todos los campos son requeridos";
-            } else {
-                // Validar formato de los datos
-                if (!filter_var($db_host, FILTER_VALIDATE_DOMAIN) && $db_host !== 'localhost') {
-                    $error = "El host no tiene un formato válido";
-                } else if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_name)) {
-                    $error = "El nombre de la base de datos solo puede contener letras, números y guiones bajos";
-                } else {
-                    $db_test = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
-                    if ($db_test === true) {
-                        $_SESSION['db_config'] = [
-                            'host' => $db_host,
-                            'name' => $db_name,
-                            'user' => $db_user,
-                            'pass' => $db_pass
-                        ];
-                        header('Location: install.php?step=3');
-                        exit;
-                    } else {
-                        $error = $db_test;
-                    }
-                }
+                break;
             }
-            break;
+
+            // Probar la conexión
+            $test_result = testDatabaseConnection($db_host, $db_name, $db_user, $db_pass);
+            if ($test_result !== true) {
+                $error = $test_result;
+                break;
+            }
+
+            // Guardar la configuración en la sesión
+            $_SESSION['db_config'] = [
+                'host' => $db_host,
+                'name' => $db_name,
+                'user' => $db_user,
+                'pass' => $db_pass
+            ];
+
+            // Avanzar al siguiente paso
+            header('Location: install.php?step=3');
+            exit;
 
         case 3:
             $site_name = trim($_POST['site_name'] ?? '');
@@ -266,11 +264,6 @@ define('DB_PASS', '{$_SESSION['db_config']['pass']}');
 define('SITE_NAME', '{$_SESSION['site_config']['name']}');
 define('BASE_URL', '{$_SESSION['site_config']['url']}');
 
-// Rutas del sistema (solo definir si no están definidas)
-if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', '/public');
-if (!defined('ASSETS_PATH')) define('ASSETS_PATH', PUBLIC_PATH . '/assets');
-if (!defined('UPLOADS_PATH')) define('UPLOADS_PATH', ASSETS_PATH . '/uploads');
-
 // Configuración de correo
 define('MAIL_HOST', 'smtp.example.com');
 define('MAIL_PORT', '587');
@@ -286,34 +279,48 @@ define('STRIPE_SECRET_KEY', 'your_secret_key');
 define('STRIPE_WEBHOOK_SECRET', 'your_webhook_secret');
 
 // Directorios
-if (!defined('UPLOAD_DIR')) define('UPLOAD_DIR', __DIR__ . '/uploads');
-if (!defined('CACHE_DIR')) define('CACHE_DIR', __DIR__ . '/cache');
-if (!defined('LOG_DIR')) define('LOG_DIR', __DIR__ . '/logs');
+define('UPLOAD_DIR', __DIR__ . '/uploads');
+define('CACHE_DIR', __DIR__ . '/cache');
+define('LOG_DIR', __DIR__ . '/logs');
 ";
                 
-                if (!file_put_contents('config/config.php', $config_content)) {
-                    throw new Exception("No se pudo escribir el archivo de configuración principal");
+                // Verificar que tenemos los datos necesarios
+                if (!isset($_SESSION['db_config']) || 
+                    !isset($_SESSION['db_config']['host']) || 
+                    !isset($_SESSION['db_config']['name']) || 
+                    !isset($_SESSION['db_config']['user']) || 
+                    !isset($_SESSION['db_config']['pass'])) {
+                    throw new Exception("Faltan datos de configuración de la base de datos");
                 }
 
-                // Configuración de base de datos (database.php)
-                $database_content = "<?php
-// Obtener las credenciales de la base de datos desde config.php
-require_once __DIR__ . '/config.php';
+                // Escribir el archivo de configuración
+                if (!file_put_contents('config/config.php', $config_content)) {
+                    throw new Exception("No se pudo escribir el archivo de configuración");
+                }
 
-return [
-    'host' => DB_HOST,
-    'name' => DB_NAME,
-    'user' => DB_USER,
-    'pass' => DB_PASS,
-    'charset' => 'utf8mb4',
-    'options' => [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]
-];";
-                if (!file_put_contents('config/database.php', $database_content)) {
-                    throw new Exception("No se pudo escribir la configuración de la base de datos");
+                // Verificar que el archivo se creó correctamente
+                if (!file_exists('config/config.php')) {
+                    throw new Exception("No se pudo crear el archivo de configuración");
+                }
+
+                // Verificar que el archivo es legible
+                if (!is_readable('config/config.php')) {
+                    throw new Exception("El archivo de configuración no es legible");
+                }
+
+                // Verificar que las constantes se definieron correctamente
+                require 'config/config.php';
+                if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
+                    throw new Exception("Las constantes de la base de datos no se definieron correctamente");
+                }
+
+                // Intentar conectar a la base de datos con las nuevas constantes
+                try {
+                    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                    $db = new PDO($dsn, DB_USER, DB_PASS);
+                    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                } catch (PDOException $e) {
+                    throw new Exception("No se pudo conectar a la base de datos con la nueva configuración: " . $e->getMessage());
                 }
 
                 // Crear archivo mail.php
