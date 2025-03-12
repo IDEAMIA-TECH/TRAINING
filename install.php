@@ -95,26 +95,18 @@ function checkSystemRequirements() {
 // Probar conexión a base de datos
 function testDatabaseConnection($host, $name, $user, $pass) {
     try {
-        // Primero intentar conectar sin especificar base de datos
-        $dsn = "mysql:host=$host;charset=utf8mb4";
-        $db = new PDO($dsn, $user, $pass);
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Verificar si la base de datos existe
-        $stmt = $db->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$name'");
-        $dbExists = $stmt->fetch();
-        
-        if (!$dbExists) {
-            return "La base de datos '$name' no existe. Por favor:\n" .
-                   "1. Ve a cPanel > MySQL Databases\n" .
-                   "2. Crea una nueva base de datos con este nombre\n" .
-                   "3. Asigna todos los privilegios al usuario";
-        }
-
-        // Intentar conectar a la base de datos específica
+        // Intentar conectar directamente a la base de datos existente
         $dsn = "mysql:host=$host;dbname=$name;charset=utf8mb4";
         $db = new PDO($dsn, $user, $pass);
         $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        // Verificar si la base de datos está vacía
+        $tables = $db->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+        if (!empty($tables)) {
+            return "La base de datos no está vacía. Por favor:\n" .
+                   "1. Usa una base de datos vacía\n" .
+                   "2. O elimina las tablas existentes primero";
+        }
 
         // Verificar permisos del usuario
         $permissions = [
@@ -131,8 +123,8 @@ function testDatabaseConnection($host, $name, $user, $pass) {
             $db->query("SELECT 1");
             $permissions['SELECT'] = true;
 
-            // Probar CREATE
-            $db->query("CREATE TEMPORARY TABLE test_permissions (id INT)");
+            // Probar CREATE TABLE
+            $db->query("CREATE TABLE test_permissions (id INT)");
             $permissions['CREATE'] = true;
 
             // Probar INSERT
@@ -151,8 +143,12 @@ function testDatabaseConnection($host, $name, $user, $pass) {
             $db->query("ALTER TABLE test_permissions ADD COLUMN test VARCHAR(10)");
             $permissions['ALTER'] = true;
 
+            // Limpiar tabla de prueba
+            $db->query("DROP TABLE IF EXISTS test_permissions");
+
         } catch (PDOException $e) {
-            // Si alguna prueba falla, continuamos con las siguientes
+            // Si alguna prueba falla, limpiar la tabla de prueba
+            $db->query("DROP TABLE IF EXISTS test_permissions");
         }
 
         // Verificar si faltan permisos
@@ -161,7 +157,7 @@ function testDatabaseConnection($host, $name, $user, $pass) {
         });
 
         if (!empty($missingPermissions)) {
-            return "El usuario no tiene todos los permisos necesarios. Faltan:\n" .
+            return "El usuario no tiene todos los privilegios necesarios. Faltan:\n" .
                    implode(", ", array_keys($missingPermissions)) . "\n\n" .
                    "Por favor, asigna TODOS los privilegios al usuario en cPanel > MySQL Databases > Add User To Database";
         }
@@ -170,19 +166,22 @@ function testDatabaseConnection($host, $name, $user, $pass) {
     } catch (PDOException $e) {
         $error = $e->getMessage();
         
-        // Mensajes de error más amigables
         if (strpos($error, 'Access denied') !== false) {
-            return "Acceso denegado. Verifica:\n" .
-                   "1. El nombre de usuario y contraseña son correctos\n" .
-                   "2. El usuario tiene permiso para conectarse desde este host\n" .
-                   "3. El usuario tiene los privilegios necesarios";
+            return "Error de acceso. Por favor:\n" .
+                   "1. Ve a cPanel > MySQL Databases\n" .
+                   "2. Verifica que la base de datos exista\n" .
+                   "3. Asegúrate de usar el nombre completo (incluyendo el prefijo del cPanel)\n" .
+                   "4. Asigna TODOS los privilegios al usuario\n\n" .
+                   "Ejemplo:\n" .
+                   "- Base de datos: usuario_nombrebd\n" .
+                   "- Usuario: usuario_nombreusuario";
         }
         
         if (strpos($error, "Unknown database") !== false) {
             return "La base de datos no existe. Por favor:\n" .
                    "1. Ve a cPanel > MySQL Databases\n" .
-                   "2. Crea una nueva base de datos con este nombre\n" .
-                   "3. Asigna todos los privilegios al usuario";
+                   "2. Crea una nueva base de datos\n" .
+                   "3. Recuerda usar el nombre completo con el prefijo";
         }
 
         return "Error de conexión: $error";
@@ -376,7 +375,7 @@ return [
                     );
                     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                    // Dividir el archivo SQL en consultas individuales y ejecutar una por una
+                    // Leer el archivo SQL y dividirlo en consultas
                     $sql = file_get_contents('database/schema.sql');
                     $queries = array_filter(
                         array_map(
@@ -384,13 +383,14 @@ return [
                             explode(';', $sql)
                         )
                     );
-                    
+
+                    // Ejecutar cada consulta
                     foreach ($queries as $query) {
-                        if (!empty($query)) {
+                        if (!empty($query) && strpos($query, 'CREATE DATABASE') === false) {
                             try {
                                 $db->exec($query);
                             } catch (PDOException $e) {
-                                throw new Exception("Error ejecutando consulta: " . $query . "\n" . $e->getMessage());
+                                throw new Exception("Error en consulta: " . substr($query, 0, 100) . "...\n" . $e->getMessage());
                             }
                         }
                     }
@@ -406,15 +406,7 @@ return [
                     ]);
 
                 } catch (PDOException $e) {
-                    throw new Exception(
-                        "Error en la base de datos. Por favor, sigue estos pasos:\n\n" .
-                        "1. Ve a cPanel > MySQL Databases\n" .
-                        "2. Crea una nueva base de datos\n" .
-                        "3. Crea un nuevo usuario o selecciona uno existente\n" .
-                        "4. Asigna TODOS los privilegios al usuario para esta base de datos\n" .
-                        "5. Usa el nombre completo de la base de datos y usuario (incluyendo el prefijo del cPanel)\n\n" .
-                        "Error específico: " . $e->getMessage()
-                    );
+                    throw new Exception("Error en la base de datos: " . $e->getMessage());
                 }
 
                 // Limpiar sesión
