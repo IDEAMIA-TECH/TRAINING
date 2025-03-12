@@ -1,0 +1,6 @@
+<?php
+// Configuración de Stripe
+define('STRIPE_SECRET_KEY', 'TU_SECRET_KEY');
+define('STRIPE_PUBLISHABLE_KEY', 'TU_PUBLISHABLE_KEY');
+define('STRIPE_WEBHOOK_SECRET', 'TU_WEBHOOK_SECRET');
+define('STRIPE_CURRENCY', 'mxn'); 
