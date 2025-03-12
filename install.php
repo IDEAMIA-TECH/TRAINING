@@ -358,6 +358,9 @@ define('LOG_DIR', __DIR__ . '/logs');
                             instructor_id INT,
                             price DECIMAL(10,2) DEFAULT 0.00,
                             status ENUM('draft', 'published', 'archived') DEFAULT 'draft',
+                            image_url VARCHAR(255),
+                            duration VARCHAR(50),
+                            level ENUM('beginner', 'intermediate', 'advanced'),
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                             FOREIGN KEY (instructor_id) REFERENCES users(id)
@@ -370,6 +373,7 @@ define('LOG_DIR', __DIR__ . '/logs');
                             status ENUM('pending', 'active', 'completed', 'cancelled') DEFAULT 'pending',
                             enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             completion_date TIMESTAMP NULL,
+                            progress INT DEFAULT 0,
                             FOREIGN KEY (user_id) REFERENCES users(id),
                             FOREIGN KEY (course_id) REFERENCES courses(id)
                         );
@@ -379,6 +383,8 @@ define('LOG_DIR', __DIR__ . '/logs');
                             course_id INT,
                             title VARCHAR(200) NOT NULL,
                             content TEXT,
+                            video_url VARCHAR(255),
+                            duration INT,
                             order_number INT DEFAULT 0,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -393,7 +399,7 @@ define('LOG_DIR', __DIR__ . '/logs');
                             status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
                             payment_method VARCHAR(50),
                             transaction_id VARCHAR(100),
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             FOREIGN KEY (user_id) REFERENCES users(id),
                             FOREIGN KEY (course_id) REFERENCES courses(id)
                         );
@@ -405,6 +411,8 @@ define('LOG_DIR', __DIR__ . '/logs');
                             status ENUM('not_started', 'in_progress', 'completed') DEFAULT 'not_started',
                             last_accessed TIMESTAMP NULL,
                             completed_at TIMESTAMP NULL,
+                            time_spent INT DEFAULT 0,
+                            notes TEXT,
                             FOREIGN KEY (user_id) REFERENCES users(id),
                             FOREIGN KEY (lesson_id) REFERENCES lessons(id)
                         );
@@ -414,7 +422,10 @@ define('LOG_DIR', __DIR__ . '/logs');
                             name VARCHAR(100) NOT NULL,
                             slug VARCHAR(100) NOT NULL UNIQUE,
                             description TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            parent_id INT NULL,
+                            image_url VARCHAR(255),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (parent_id) REFERENCES categories(id)
                         );
 
                         CREATE TABLE IF NOT EXISTS course_categories (
@@ -425,11 +436,63 @@ define('LOG_DIR', __DIR__ . '/logs');
                             FOREIGN KEY (category_id) REFERENCES categories(id)
                         );
 
+                        CREATE TABLE IF NOT EXISTS reviews (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            course_id INT,
+                            rating INT NOT NULL,
+                            comment TEXT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (user_id) REFERENCES users(id),
+                            FOREIGN KEY (course_id) REFERENCES courses(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS notifications (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            title VARCHAR(255) NOT NULL,
+                            message TEXT,
+                            type VARCHAR(50),
+                            read_at TIMESTAMP NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (user_id) REFERENCES users(id)
+                        );
+
                         CREATE TABLE IF NOT EXISTS settings (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             `key` VARCHAR(100) NOT NULL UNIQUE,
                             value TEXT,
+                            type VARCHAR(50) DEFAULT 'string',
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        );
+
+                        CREATE TABLE IF NOT EXISTS course_materials (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            lesson_id INT,
+                            title VARCHAR(255) NOT NULL,
+                            type ENUM('document', 'video', 'link', 'other'),
+                            content TEXT,
+                            file_url VARCHAR(255),
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (lesson_id) REFERENCES lessons(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS user_certificates (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            course_id INT,
+                            certificate_number VARCHAR(100) UNIQUE,
+                            issued_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (user_id) REFERENCES users(id),
+                            FOREIGN KEY (course_id) REFERENCES courses(id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS rate_limits (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            ip_address VARCHAR(45),
+                            endpoint VARCHAR(255),
+                            requests INT DEFAULT 1,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
                     ";
 
