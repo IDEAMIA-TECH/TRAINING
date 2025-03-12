@@ -112,22 +112,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Información de configuración incompleta");
                 }
 
-                // Crear archivo de configuración
+                // Crear directorio config si no existe
                 if (!file_exists('config')) {
                     mkdir('config', 0755, true);
                 }
                 
+                // Configuración principal
                 $config_content = "<?php
+// Configuración de Base de Datos
 define('DB_HOST', '{$_SESSION['db_config']['host']}');
 define('DB_NAME', '{$_SESSION['db_config']['name']}');
 define('DB_USER', '{$_SESSION['db_config']['user']}');
 define('DB_PASS', '{$_SESSION['db_config']['pass']}');
+
+// Configuración del Sitio
 define('SITE_NAME', '{$_SESSION['site_config']['name']}');
 define('BASE_URL', '{$_SESSION['site_config']['url']}');
+define('ADMIN_EMAIL', '{$_SESSION['site_config']['email']}');
+
+// Configuración de Correo
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', '587');
+define('SMTP_USER', '');
+define('SMTP_PASS', '');
+define('SMTP_FROM', '{$_SESSION['site_config']['email']}');
+
+// Configuración de Pagos
+define('PAYPAL_CLIENT_ID', '');
+define('PAYPAL_SECRET', '');
+define('STRIPE_PUBLIC_KEY', '');
+define('STRIPE_SECRET_KEY', '');
+
+// Configuración de Seguridad
+define('CSRF_TOKEN_SECRET', '".bin2hex(random_bytes(32))."');
+define('SESSION_LIFETIME', 7200);
+define('COOKIE_LIFETIME', 604800);
+
+// Configuración de Archivos
+define('MAX_UPLOAD_SIZE', 5242880); // 5MB
+define('ALLOWED_FILE_TYPES', 'jpg,jpeg,png,gif,pdf,doc,docx');
+define('UPLOAD_PATH', 'assets/uploads/');
+
+// Configuración de Cache
+define('CACHE_ENABLED', true);
+define('CACHE_PATH', 'cache/');
+define('CACHE_LIFETIME', 3600);
+
+// Zona horaria
+date_default_timezone_set('America/Mexico_City');
+
+// Modo debug
+define('DEBUG_MODE', false);
 ";
                 
                 if (!file_put_contents('config/config.php', $config_content)) {
-                    throw new Exception("No se pudo escribir el archivo de configuración");
+                    throw new Exception("No se pudo escribir el archivo de configuración principal");
+                }
+
+                // Crear archivo database.php
+                $database_content = "<?php
+return [
+    'host' => '{$_SESSION['db_config']['host']}',
+    'name' => '{$_SESSION['db_config']['name']}',
+    'user' => '{$_SESSION['db_config']['user']}',
+    'pass' => '{$_SESSION['db_config']['pass']}',
+    'charset' => 'utf8mb4',
+    'options' => [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]
+];
+";
+                if (!file_put_contents('config/database.php', $database_content)) {
+                    throw new Exception("No se pudo escribir la configuración de la base de datos");
+                }
+
+                // Crear archivo mail.php
+                $mail_content = "<?php
+return [
+    'host' => 'smtp.gmail.com',
+    'port' => 587,
+    'username' => '',
+    'password' => '',
+    'from' => '{$_SESSION['site_config']['email']}',
+    'from_name' => '{$_SESSION['site_config']['name']}',
+    'encryption' => 'tls'
+];
+";
+                if (!file_put_contents('config/mail.php', $mail_content)) {
+                    throw new Exception("No se pudo escribir la configuración del correo");
+                }
+
+                // Crear archivo app.php
+                $app_content = "<?php
+return [
+    'name' => '{$_SESSION['site_config']['name']}',
+    'url' => '{$_SESSION['site_config']['url']}',
+    'admin_email' => '{$_SESSION['site_config']['email']}',
+    'timezone' => 'America/Mexico_City',
+    'locale' => 'es',
+    'debug' => false,
+    'maintenance_mode' => false,
+    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.',
+    'session_lifetime' => 7200,
+    'cookie_lifetime' => 604800,
+    'max_upload_size' => 5242880,
+    'allowed_file_types' => ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'],
+    'upload_path' => 'assets/uploads/',
+    'cache_enabled' => true,
+    'cache_path' => 'cache/',
+    'cache_lifetime' => 3600
+];
+";
+                if (!file_put_contents('config/app.php', $app_content)) {
+                    throw new Exception("No se pudo escribir la configuración de la aplicación");
                 }
 
                 // Importar base de datos

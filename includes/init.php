@@ -11,9 +11,21 @@ require_once __DIR__ . '/security/SecurityMiddleware.php';
 require_once __DIR__ . '/cache/CacheManager.php';
 require_once __DIR__ . '/database/QueryOptimizer.php';
 
-// Inicializar conexión a la base de datos
-$database = new Database();
-$db = $database->getConnection();
+// Cargar configuración principal
+require_once 'config/config.php';
+
+// Cargar configuraciones específicas
+$db_config = require 'config/database.php';
+$mail_config = require 'config/mail.php';
+$app_config = require 'config/app.php';
+
+// Inicializar conexión a base de datos
+try {
+    $dsn = "mysql:host={$db_config['host']};dbname={$db_config['name']};charset={$db_config['charset']}";
+    $db = new PDO($dsn, $db_config['user'], $db_config['pass'], $db_config['options']);
+} catch (PDOException $e) {
+    die('Error de conexión: ' . $e->getMessage());
+}
 
 // Inicializar logger
 $logger = new Logger($db);
