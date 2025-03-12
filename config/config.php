@@ -1,6 +1,6 @@
 <?php
 // Configuración general
-define('BASE_URL', 'http://localhost/courses-system');
+define('BASE_URL', '//' . $_SERVER['HTTP_HOST'] . '/nombre-del-subdirectorio');
 define('SITE_NAME', 'Sistema de Cursos');
 
 // Configuración de correo
