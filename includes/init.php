@@ -1,8 +1,51 @@
 <?php
 session_start();
+
+// Cargar configuración
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../config/database.php';
+
+// Cargar funciones de utilidad
 require_once __DIR__ . '/functions.php';
+
+// Configurar zona horaria
+date_default_timezone_set('America/Mexico_City');
+
+// Configurar manejo de errores
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Conexión a la base de datos
+try {
+    $db = new PDO(
+        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false
+        ]
+    );
+} catch (PDOException $e) {
+    die("Error de conexión: " . $e->getMessage());
+}
+
+// Variables globales
+$user_authenticated = isset($_SESSION['user_id']);
+$user_is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+
+// Función de redirección
+function redirect($path) {
+    header("Location: " . BASE_URL . $path);
+    exit;
+}
+
+// Función para sanitizar input
+function sanitize_input($data) {
+    return htmlspecialchars(trim($data));
+}
+
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/pagination.php';
 require_once __DIR__ . '/Logger.php';
 require_once __DIR__ . '/Settings.php';
@@ -43,13 +86,6 @@ try {
     }
     exit;
 }
-
-// Configurar zona horaria
-date_default_timezone_set('America/Mexico_City');
-
-// Verificar si el usuario está autenticado
-$user_authenticated = is_authenticated();
-$is_admin = is_admin();
 
 // Verificar modo mantenimiento
 check_maintenance_mode(); 

@@ -6,6 +6,13 @@ define('BASE_URL', '//' . $_SERVER['HTTP_HOST'] . $subdir);
 define('ASSETS_URL', '//' . $_SERVER['HTTP_HOST'] . dirname($subdir) . '/assets');
 define('SITE_NAME', 'Sistema de Cursos');
 
+// Configuración de base de datos
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'devgdlho_training');
+define('DB_USER', 'devgdlho_training');
+define('DB_PASS', 'tu_contraseña');
+define('DB_CHARSET', 'utf8mb4');
+
 // Configuración de correo
 define('SMTP_HOST', 'smtp.example.com');
 define('SMTP_USER', 'user@example.com');
