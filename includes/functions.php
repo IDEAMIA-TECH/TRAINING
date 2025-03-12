@@ -21,8 +21,7 @@ if (!function_exists('redirect')) {
      * @return void
      */
     function redirect($path) {
-        $base_url = rtrim(BASE_URL, '/');
-        $public_path = '/public';
+        $base_url = rtrim(BASE_URL, '/');  // ejemplo: https://devgdlhost.com/training
         
         // Si la ruta no comienza con /, añadirlo
         if (strpos($path, '/') !== 0) {
@@ -33,10 +32,13 @@ if (!function_exists('redirect')) {
         if (strpos($path, '/public/') !== 0 && 
             strpos($path, '/api/') !== 0 && 
             strpos($path, '/assets/') !== 0) {
-            $path = $public_path . $path;
+            $path = '/public' . $path;
         }
         
-        header('Location: ' . $base_url . $path);
+        // Construir la URL completa
+        $url = $base_url . $path;  // ejemplo: https://devgdlhost.com/training/public/login.php
+        
+        header('Location: ' . $url);
         exit;
     }
 }
