@@ -3,20 +3,35 @@ class SecurityMiddleware {
     private $db;
     private $logger;
     private $settings;
+    private $publicRoutes = [
+        '/public/login.php',
+        '/public/register.php',
+        '/public/forgot-password.php',
+        '/public/reset-password.php',
+        '/install.php',
+        '/public/assets/',
+        '/public/api/'
+    ];
 
-    public function __construct($db, $logger, $settings) {
-        if (!$db) {
-            throw new Exception('Database connection is required for SecurityMiddleware');
-        }
+    public function __construct($db = null, $logger = null, $settings = null) {
         $this->db = $db;
         $this->logger = $logger;
         $this->settings = $settings;
     }
 
     public function validateRequest() {
-        // Verificar si estamos en una ruta pública
+        // Si estamos en una ruta pública, no validar
         if ($this->isPublicRoute()) {
             return true;
+        }
+
+        // Si no hay conexión a la base de datos, redirigir al instalador
+        if (!$this->db) {
+            if (!file_exists('install.php')) {
+                die('El sistema no está instalado y no se encuentra el instalador.');
+            }
+            header('Location: /install.php');
+            exit;
         }
 
         $this->validateRateLimit();
@@ -164,24 +179,75 @@ class SecurityMiddleware {
     }
 
     private function isPublicRoute() {
-        $publicRoutes = [
-            '/login.php',
-            '/register.php',
-            '/forgot-password.php',
-            '/reset-password.php',
-            '/install.php',
-            '/assets/',
-            '/public/'
-        ];
-
         $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         
-        foreach ($publicRoutes as $route) {
+        foreach ($this->publicRoutes as $route) {
             if (strpos($currentPath, $route) === 0) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function validateSession() {
+        // Verificar si la sesión está iniciada
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Verificar si el usuario está autenticado
+        if (!isset($_SESSION['user_id'])) {
+            // Si no está autenticado y no es una ruta pública, redirigir al login
+            if (!$this->isPublicRoute()) {
+                $_SESSION['error'] = 'Debes iniciar sesión para acceder a esta página';
+                $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+                header('Location: /public/login.php');
+                exit;
+            }
+        } else {
+            // Si el usuario está autenticado, verificar si la sesión ha expirado
+            if (isset($_SESSION['last_activity'])) {
+                $session_lifetime = 3600; // 1 hora en segundos
+                if (time() - $_SESSION['last_activity'] > $session_lifetime) {
+                    // La sesión ha expirado
+                    session_unset();
+                    session_destroy();
+                    $_SESSION['error'] = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+                    header('Location: /public/login.php');
+                    exit;
+                }
+            }
+            
+            // Actualizar el tiempo de última actividad
+            $_SESSION['last_activity'] = time();
+
+            // Verificar si el usuario sigue activo en la base de datos
+            if ($this->db) {
+                $stmt = $this->db->prepare("
+                    SELECT status 
+                    FROM users 
+                    WHERE id = ? 
+                    AND status = 'active'
+                ");
+                $stmt->execute([$_SESSION['user_id']]);
+                
+                if (!$stmt->fetch()) {
+                    // El usuario ya no está activo
+                    session_unset();
+                    session_destroy();
+                    $_SESSION['error'] = 'Tu cuenta ha sido desactivada.';
+                    header('Location: /public/login.php');
+                    exit;
+                }
+            }
+        }
+
+        // Regenerar el ID de sesión periódicamente para prevenir session fixation
+        if (!isset($_SESSION['last_regeneration']) || 
+            time() - $_SESSION['last_regeneration'] > 300) { // Cada 5 minutos
+            session_regenerate_id(true);
+            $_SESSION['last_regeneration'] = time();
+        }
     }
 } 

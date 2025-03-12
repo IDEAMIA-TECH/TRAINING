@@ -1,38 +1,59 @@
 <?php
 session_start();
 
-// Definir la ruta base del proyecto
+// Definir constantes de rutas
 define('BASE_PATH', realpath(__DIR__ . '/..'));
+define('PUBLIC_PATH', '/public');
 
-// Verificar si el sistema está instalado
-if (!file_exists(BASE_PATH . '/config/config.php') || 
-    !file_exists(BASE_PATH . '/config/database.php') || 
-    !file_exists(BASE_PATH . '/config/app.php')) {
-    
-    // Redirigir al instalador si no está instalado
-    $installFile = '/install.php';
-    if (!file_exists(BASE_PATH . $installFile)) {
-        die('El sistema no está instalado y no se encuentra el instalador.');
-    }
-    
-    // Solo redirigir si no estamos ya en el instalador
-    if (strpos($_SERVER['PHP_SELF'], 'install.php') === false) {
-        header('Location: ' . $installFile);
-        exit;
-    }
-}
+// Verificar si estamos en el instalador
+$isInstaller = strpos($_SERVER['PHP_SELF'], 'install.php') !== false;
 
-// Si estamos en el instalador, no necesitamos cargar más
-if (strpos($_SERVER['PHP_SELF'], 'install.php') !== false) {
+// Si estamos en el instalador, no necesitamos hacer nada más
+if ($isInstaller) {
     return;
 }
 
-// Cargar configuraciones
+// Verificar si el sistema está instalado
+if (!file_exists(BASE_PATH . '/config/config.php')) {
+    header('Location: /install.php');
+    exit;
+}
+
+// Cargar configuración principal
 require_once BASE_PATH . '/config/config.php';
-$db_config = require BASE_PATH . '/config/database.php';
-$app_config = require BASE_PATH . '/config/app.php';
-$mail_config = file_exists(BASE_PATH . '/config/mail.php') ? 
-    require BASE_PATH . '/config/mail.php' : [];
+
+// Función helper para redirecciones
+function redirect($path) {
+    $base_url = rtrim(BASE_URL, '/');
+    $public_path = '/public';
+    
+    // Si la ruta no comienza con /, añadirlo
+    if (strpos($path, '/') !== 0) {
+        $path = '/' . $path;
+    }
+    
+    // Si la ruta no incluye /public/ y no es una ruta especial, añadir /public/
+    if (strpos($path, '/public/') !== 0 && 
+        strpos($path, '/api/') !== 0 && 
+        strpos($path, '/assets/') !== 0) {
+        $path = $public_path . $path;
+    }
+    
+    header('Location: ' . $base_url . $path);
+    exit;
+}
+
+// Inicializar conexión a base de datos
+try {
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+    $db = new PDO($dsn, DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]);
+} catch (PDOException $e) {
+    die('Error de conexión: ' . $e->getMessage());
+}
 
 // Cargar clases y funciones
 require_once __DIR__ . '/functions.php';
@@ -44,40 +65,22 @@ require_once __DIR__ . '/security/SecurityMiddleware.php';
 require_once __DIR__ . '/cache/CacheManager.php';
 require_once __DIR__ . '/database/QueryOptimizer.php';
 
-// Inicializar conexión a base de datos usando la configuración del archivo database.php
-try {
-    $dsn = "mysql:host={$db_config['host']};dbname={$db_config['name']};charset={$db_config['charset']}";
-    $db = new PDO($dsn, $db_config['user'], $db_config['pass'], $db_config['options']);
-} catch (PDOException $e) {
-    if (strpos($_SERVER['PHP_SELF'], 'install.php') === false) {
-        die('Error de conexión: ' . $e->getMessage());
-    }
-}
-
-// Inicializar componentes con la conexión a la base de datos
+// Inicializar componentes
 $logger = new Logger($db);
 $settings = new Settings($db);
 $cache = new CacheManager();
 $query_optimizer = new QueryOptimizer($db, $cache, $logger);
 $security = new SecurityMiddleware($db, $logger, $settings);
 
-// Configurar zona horaria desde app.php
-date_default_timezone_set($app_config['timezone'] ?? 'America/Mexico_City');
-
-// Definir constantes globales desde app.php
-define('APP_NAME', $app_config['name'] ?? 'Sistema de Cursos');
-define('APP_URL', $app_config['url'] ?? '');
-define('APP_ENV', $app_config['env'] ?? 'production');
-define('DEBUG_MODE', $app_config['debug'] ?? false);
+// Configurar zona horaria
+date_default_timezone_set('America/Mexico_City');
 
 // Verificar si el usuario está autenticado
 $user_authenticated = is_authenticated();
 $is_admin = is_admin();
 
 // Verificar modo mantenimiento
-if (isset($app_config['maintenance_mode']) && $app_config['maintenance_mode']) {
-    check_maintenance_mode();
-}
+check_maintenance_mode();
 
 // Aplicar validaciones de seguridad
 try {

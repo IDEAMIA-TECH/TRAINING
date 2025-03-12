@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mkdir('config', 0755, true);
                 }
                 
-                // Configuración principal
+                // Configuración principal (config.php)
                 $config_content = "<?php
 // Configuración de Base de Datos
 define('DB_HOST', '{$_SESSION['db_config']['host']}');
@@ -265,7 +265,12 @@ define('DB_PASS', '{$_SESSION['db_config']['pass']}');
 // Configuración del Sitio
 define('SITE_NAME', '{$_SESSION['site_config']['name']}');
 define('BASE_URL', '{$_SESSION['site_config']['url']}');
-define('ADMIN_EMAIL', '{$_SESSION['site_config']['email']}');
+define('PUBLIC_URL', BASE_URL . '/public');
+
+// Rutas del sistema
+define('PUBLIC_PATH', '/public');
+define('ASSETS_PATH', PUBLIC_PATH . '/assets');
+define('UPLOADS_PATH', ASSETS_PATH . '/uploads');
 
 // Configuración de Correo
 define('SMTP_HOST', 'smtp.gmail.com');
@@ -306,21 +311,23 @@ define('DEBUG_MODE', false);
                     throw new Exception("No se pudo escribir el archivo de configuración principal");
                 }
 
-                // Crear archivo database.php
+                // Configuración de base de datos (database.php)
                 $database_content = "<?php
+// Obtener las credenciales de la base de datos desde config.php
+require_once __DIR__ . '/config.php';
+
 return [
-    'host' => '{$_SESSION['db_config']['host']}',
-    'name' => '{$_SESSION['db_config']['name']}',
-    'user' => '{$_SESSION['db_config']['user']}',
-    'pass' => '{$_SESSION['db_config']['pass']}',
+    'host' => DB_HOST,
+    'name' => DB_NAME,
+    'user' => DB_USER,
+    'pass' => DB_PASS,
     'charset' => 'utf8mb4',
     'options' => [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_EMULATE_PREPARES => false
     ]
-];
-";
+];";
                 if (!file_put_contents('config/database.php', $database_content)) {
                     throw new Exception("No se pudo escribir la configuración de la base de datos");
                 }
@@ -341,7 +348,7 @@ return [
                     throw new Exception("No se pudo escribir la configuración del correo");
                 }
 
-                // Crear archivo app.php
+                // Configuración de la aplicación (app.php)
                 $app_content = "<?php
 return [
     'name' => '{$_SESSION['site_config']['name']}',
@@ -349,19 +356,11 @@ return [
     'admin_email' => '{$_SESSION['site_config']['email']}',
     'timezone' => 'America/Mexico_City',
     'locale' => 'es',
+    'env' => 'production',
     'debug' => false,
     'maintenance_mode' => false,
-    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.',
-    'session_lifetime' => 7200,
-    'cookie_lifetime' => 604800,
-    'max_upload_size' => 5242880,
-    'allowed_file_types' => ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'],
-    'upload_path' => 'assets/uploads/',
-    'cache_enabled' => true,
-    'cache_path' => 'cache/',
-    'cache_lifetime' => 3600
-];
-";
+    'maintenance_message' => 'El sitio está en mantenimiento. Volveremos pronto.'
+];";
                 if (!file_put_contents('config/app.php', $app_content)) {
                     throw new Exception("No se pudo escribir la configuración de la aplicación");
                 }
@@ -706,7 +705,9 @@ return [
                     </div>
                     <div class="form-group">
                         <label>URL del Sitio</label>
-                        <input type="text" name="site_url" value="<?php echo 'http://'.$_SERVER['HTTP_HOST']; ?>" required>
+                        <input type="text" name="site_url" 
+                            value="<?php echo 'http://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['PHP_SELF']).'/public'; ?>" 
+                            required>
                     </div>
                     <div class="form-group">
                         <label>Email del Administrador</label>
@@ -739,8 +740,7 @@ return [
                         </ol>
                         <?php
                         $base_url = rtrim($_SESSION['site_config']['url'], '/');
-                        // Determinar la ubicación correcta del archivo login.php
-                        $login_path = file_exists('auth/login.php') ? 'auth/login.php' : 'login.php';
+                        $login_path = 'public/login.php';
                         ?>
                         <a href="<?php echo $base_url . '/' . $login_path; ?>" class="btn">Ir al Login</a>
                     </div>

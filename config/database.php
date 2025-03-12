@@ -1,35 +1,12 @@
 <?php
-class Database {
-    private $host = "localhost";
-    private $db_name = "courses_db";
-    private $username = "root";
-    private $password = "";
-    private $conn;
-
-    public function getConnection() {
-        $this->conn = null;
-
-        try {
-            $this->conn = new PDO(
-                "mysql:host=" . $this->host . ";dbname=" . $this->db_name,
-                $this->username,
-                $this->password
-            );
-            $this->conn->exec("set names utf8");
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch(PDOException $e) {
-            echo "Connection error: " . $e->getMessage();
-        }
-
-        return $this->conn;
-    }
-}
+// Obtener las credenciales de la base de datos desde config.php
+require_once __DIR__ . '/config.php';
 
 return [
-    'host' => 'localhost',
-    'name' => 'nombre_base_datos',
-    'user' => 'usuario',
-    'pass' => 'contraseña',
+    'host' => DB_HOST,
+    'name' => DB_NAME,
+    'user' => DB_USER,
+    'pass' => DB_PASS,
     'charset' => 'utf8mb4',
     'options' => [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
