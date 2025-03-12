@@ -464,7 +464,7 @@ define('LOG_DIR', __DIR__ . '/logs');
                             value TEXT,
                             type VARCHAR(50) DEFAULT 'string',
                             description TEXT,
-                            is_public BOOLEAN DEFAULT false,
+                            is_public TINYINT(1) DEFAULT 0,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                         );
@@ -519,33 +519,33 @@ define('LOG_DIR', __DIR__ . '/logs');
                     // Insertar configuraciones iniciales
                     $initial_settings = [
                         // Configuración del sitio
-                        ['site_name', $_SESSION['site_config']['name'], 'string', 'Nombre del sitio', true],
-                        ['site_url', $_SESSION['site_config']['url'], 'string', 'URL del sitio', true],
-                        ['admin_email', $_SESSION['site_config']['email'], 'string', 'Email del administrador', false],
+                        ['site_name', $_SESSION['site_config']['name'], 'string', 'Nombre del sitio', 1],
+                        ['site_url', $_SESSION['site_config']['url'], 'string', 'URL del sitio', 1],
+                        ['admin_email', $_SESSION['site_config']['email'], 'string', 'Email del administrador', 0],
                         
                         // Configuración del sistema
-                        ['maintenance_mode', 'false', 'boolean', 'Modo mantenimiento', true],
-                        ['timezone', 'America/Mexico_City', 'string', 'Zona horaria', true],
-                        ['date_format', 'Y-m-d', 'string', 'Formato de fecha', true],
-                        ['time_format', 'H:i:s', 'string', 'Formato de hora', true],
+                        ['maintenance_mode', 'false', 'boolean', 'Modo mantenimiento', 1],
+                        ['timezone', 'America/Mexico_City', 'string', 'Zona horaria', 1],
+                        ['date_format', 'Y-m-d', 'string', 'Formato de fecha', 1],
+                        ['time_format', 'H:i:s', 'string', 'Formato de hora', 1],
                         
                         // Configuración de correo
-                        ['mail_driver', 'smtp', 'string', 'Driver de correo', false],
-                        ['mail_host', 'smtp.example.com', 'string', 'Host SMTP', false],
-                        ['mail_port', '587', 'string', 'Puerto SMTP', false],
-                        ['mail_username', '', 'string', 'Usuario SMTP', false],
-                        ['mail_password', '', 'string', 'Contraseña SMTP', false],
-                        ['mail_encryption', 'tls', 'string', 'Encriptación SMTP', false],
+                        ['mail_driver', 'smtp', 'string', 'Driver de correo', 0],
+                        ['mail_host', 'smtp.example.com', 'string', 'Host SMTP', 0],
+                        ['mail_port', '587', 'string', 'Puerto SMTP', 0],
+                        ['mail_username', '', 'string', 'Usuario SMTP', 0],
+                        ['mail_password', '', 'string', 'Contraseña SMTP', 0],
+                        ['mail_encryption', 'tls', 'string', 'Encriptación SMTP', 0],
                         
                         // Configuración de pagos
-                        ['currency', 'MXN', 'string', 'Moneda predeterminada', true],
-                        ['stripe_public_key', '', 'string', 'Clave pública de Stripe', false],
-                        ['stripe_secret_key', '', 'string', 'Clave secreta de Stripe', false],
-                        ['stripe_webhook_secret', '', 'string', 'Clave secreta del webhook de Stripe', false],
+                        ['currency', 'MXN', 'string', 'Moneda predeterminada', 1],
+                        ['stripe_public_key', '', 'string', 'Clave pública de Stripe', 0],
+                        ['stripe_secret_key', '', 'string', 'Clave secreta de Stripe', 0],
+                        ['stripe_webhook_secret', '', 'string', 'Clave secreta del webhook de Stripe', 0],
                         
                         // Configuración de archivos
-                        ['max_upload_size', '5242880', 'integer', 'Tamaño máximo de archivo (bytes)', true],
-                        ['allowed_file_types', 'jpg,jpeg,png,pdf,doc,docx', 'string', 'Tipos de archivo permitidos', true]
+                        ['max_upload_size', '5242880', 'integer', 'Tamaño máximo de archivo (bytes)', 1],
+                        ['allowed_file_types', 'jpg,jpeg,png,pdf,doc,docx', 'string', 'Tipos de archivo permitidos', 1]
                     ];
 
                     // Insertar las configuraciones iniciales
@@ -556,6 +556,8 @@ define('LOG_DIR', __DIR__ . '/logs');
 
                     foreach ($initial_settings as $setting) {
                         try {
+                            // Asegurarse de que is_public sea 1 o 0
+                            $setting[4] = (int)$setting[4];
                             $insert_settings->execute($setting);
                         } catch (PDOException $e) {
                             // Ignorar errores de duplicados
