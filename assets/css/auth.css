@@ -13,7 +13,7 @@
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
     padding: 40px;
 }
 
@@ -88,4 +88,40 @@
     background: #ffe3e3;
     color: #d63031;
     border: 1px solid #ff9b9b;
+}
+
+/* Agregar estos estilos específicos para el registro */
+.auth-form ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.auth-form ul li {
+    color: #d63031;
+    margin-bottom: 5px;
+}
+
+/* Estilo para el mensaje de requisitos de contraseña */
+.password-requirements {
+    font-size: 12px;
+    color: var(--text-color);
+    margin-top: 5px;
+}
+
+/* Estilo para campos inválidos */
+.auth-form input:invalid {
+    border-color: #ff4b4b;
+}
+
+/* Estilo para el mensaje de error de validación */
+.validation-message {
+    color: #d63031;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.auth-form input:invalid + .validation-message {
+    display: block;
 } 
