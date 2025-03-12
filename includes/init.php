@@ -22,6 +22,16 @@ if (!file_exists(BASE_PATH . '/config/config.php')) {
 // Cargar configuración principal
 require_once BASE_PATH . '/config/config.php';
 
+// Verificar que las constantes necesarias estén definidas
+if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
+    // Si estamos en una ruta pública, redirigir al instalador
+    if (strpos($_SERVER['PHP_SELF'], '/public/') !== false) {
+        header('Location: /install.php');
+        exit;
+    }
+    die('Error: Configuración de base de datos incompleta. Por favor ejecuta el instalador.');
+}
+
 // Inicializar conexión a base de datos
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
@@ -31,6 +41,11 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false
     ]);
 } catch (PDOException $e) {
+    // Si estamos en una ruta pública, redirigir al instalador
+    if (strpos($_SERVER['PHP_SELF'], '/public/') !== false) {
+        header('Location: /install.php');
+        exit;
+    }
     die('Error de conexión: ' . $e->getMessage());
 }
 

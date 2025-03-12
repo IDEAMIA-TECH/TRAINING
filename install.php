@@ -268,14 +268,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Configuración principal (config.php)
                     $config_content = "<?php
 // Configuración de Base de Datos
-define('DB_HOST', '{$_SESSION['db_config']['host']}');
-define('DB_NAME', '{$_SESSION['db_config']['name']}');
-define('DB_USER', '{$_SESSION['db_config']['user']}');
-define('DB_PASS', '{$_SESSION['db_config']['pass']}');
+define('DB_HOST', '" . addslashes($_SESSION['db_config']['host']) . "');
+define('DB_NAME', '" . addslashes($_SESSION['db_config']['name']) . "');
+define('DB_USER', '" . addslashes($_SESSION['db_config']['user']) . "');
+define('DB_PASS', '" . addslashes($_SESSION['db_config']['pass']) . "');
 
 // Configuración del Sitio
-define('SITE_NAME', '{$_SESSION['site_config']['name']}');
-define('BASE_URL', '{$_SESSION['site_config']['url']}');
+define('SITE_NAME', '" . addslashes($_SESSION['site_config']['name']) . "');
+define('BASE_URL', '" . addslashes($_SESSION['site_config']['url']) . "');
 
 // Configuración de correo
 define('MAIL_HOST', 'smtp.example.com');
@@ -297,7 +297,7 @@ define('CACHE_DIR', __DIR__ . '/cache');
 define('LOG_DIR', __DIR__ . '/logs');
 ";
                     // Escribir config.php
-                    if (file_put_contents('config/config.php', $config_content) === false) {
+                    if (!file_put_contents('config/config.php', $config_content)) {
                         throw new Exception("No se pudo escribir el archivo config.php");
                     }
 
