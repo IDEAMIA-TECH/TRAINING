@@ -458,11 +458,14 @@ define('LOG_DIR', __DIR__ . '/logs');
                             FOREIGN KEY (user_id) REFERENCES users(id)
                         );
 
-                        CREATE TABLE IF NOT EXISTS settings (
+                        CREATE TABLE IF NOT EXISTS system_settings (
                             id INT AUTO_INCREMENT PRIMARY KEY,
                             `key` VARCHAR(100) NOT NULL UNIQUE,
                             value TEXT,
                             type VARCHAR(50) DEFAULT 'string',
+                            description TEXT,
+                            is_public BOOLEAN DEFAULT false,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                         );
 
@@ -513,19 +516,54 @@ define('LOG_DIR', __DIR__ . '/logs');
                         $_SESSION['site_config']['password']
                     ]);
 
-                    // Insertar configuraciones básicas
-                    $settings_sql = "INSERT INTO settings (`key`, value) VALUES 
-                        ('site_name', ?),
-                        ('site_url', ?),
-                        ('admin_email', ?),
-                        ('maintenance_mode', 'false'),
-                        ('timezone', 'America/Mexico_City')";
-                    $stmt = $db->prepare($settings_sql);
-                    $stmt->execute([
-                        $_SESSION['site_config']['name'],
-                        $_SESSION['site_config']['url'],
-                        $_SESSION['site_config']['email']
-                    ]);
+                    // Insertar configuraciones iniciales
+                    $initial_settings = [
+                        // Configuración del sitio
+                        ['site_name', $_SESSION['site_config']['name'], 'string', 'Nombre del sitio', true],
+                        ['site_url', $_SESSION['site_config']['url'], 'string', 'URL del sitio', true],
+                        ['admin_email', $_SESSION['site_config']['email'], 'string', 'Email del administrador', false],
+                        
+                        // Configuración del sistema
+                        ['maintenance_mode', 'false', 'boolean', 'Modo mantenimiento', true],
+                        ['timezone', 'America/Mexico_City', 'string', 'Zona horaria', true],
+                        ['date_format', 'Y-m-d', 'string', 'Formato de fecha', true],
+                        ['time_format', 'H:i:s', 'string', 'Formato de hora', true],
+                        
+                        // Configuración de correo
+                        ['mail_driver', 'smtp', 'string', 'Driver de correo', false],
+                        ['mail_host', 'smtp.example.com', 'string', 'Host SMTP', false],
+                        ['mail_port', '587', 'string', 'Puerto SMTP', false],
+                        ['mail_username', '', 'string', 'Usuario SMTP', false],
+                        ['mail_password', '', 'string', 'Contraseña SMTP', false],
+                        ['mail_encryption', 'tls', 'string', 'Encriptación SMTP', false],
+                        
+                        // Configuración de pagos
+                        ['currency', 'MXN', 'string', 'Moneda predeterminada', true],
+                        ['stripe_public_key', '', 'string', 'Clave pública de Stripe', false],
+                        ['stripe_secret_key', '', 'string', 'Clave secreta de Stripe', false],
+                        ['stripe_webhook_secret', '', 'string', 'Clave secreta del webhook de Stripe', false],
+                        
+                        // Configuración de archivos
+                        ['max_upload_size', '5242880', 'integer', 'Tamaño máximo de archivo (bytes)', true],
+                        ['allowed_file_types', 'jpg,jpeg,png,pdf,doc,docx', 'string', 'Tipos de archivo permitidos', true]
+                    ];
+
+                    // Insertar las configuraciones iniciales
+                    $insert_settings = $db->prepare("
+                        INSERT INTO system_settings (`key`, value, type, description, is_public) 
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+
+                    foreach ($initial_settings as $setting) {
+                        try {
+                            $insert_settings->execute($setting);
+                        } catch (PDOException $e) {
+                            // Ignorar errores de duplicados
+                            if ($e->getCode() !== '23000') {
+                                throw $e;
+                            }
+                        }
+                    }
 
                     $success = true;
                     session_destroy(); // Limpiar la sesión después de una instalación exitosa

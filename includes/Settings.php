@@ -1,54 +1,37 @@
 <?php
 class Settings {
     private $db;
-    private static $cache = [];
+    private $cache;
+    private static $settings = null;
 
     public function __construct($db) {
         $this->db = $db;
     }
 
     public function get($key, $default = null) {
-        if (isset(self::$cache[$key])) {
-            return self::$cache[$key];
+        if (self::$settings === null) {
+            $this->loadSettings();
         }
-
-        try {
-            $stmt = $this->db->prepare("
-                SELECT setting_value, type 
-                FROM system_settings 
-                WHERE setting_key = ?
-            ");
-            $stmt->execute([$key]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$result) {
-                return $default;
-            }
-
-            $value = $this->formatValue($result['setting_value'], $result['type']);
-            self::$cache[$key] = $value;
-
-            return $value;
-        } catch (Exception $e) {
-            error_log("Error obteniendo configuración: " . $e->getMessage());
-            return $default;
-        }
+        return self::$settings[$key] ?? $default;
     }
 
-    private function formatValue($value, $type) {
-        switch ($type) {
-            case 'boolean':
-                return $value == '1';
-            case 'number':
-                return (int)$value;
-            case 'json':
-                return json_decode($value, true);
-            default:
-                return $value;
-        }
+    public function set($key, $value, $type = 'string', $description = '', $is_public = false) {
+        $stmt = $this->db->prepare("
+            INSERT INTO system_settings (`key`, value, type, description, is_public)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+            value = VALUES(value),
+            type = VALUES(type),
+            description = VALUES(description),
+            is_public = VALUES(is_public)
+        ");
+        
+        $stmt->execute([$key, $value, $type, $description, $is_public]);
+        self::$settings[$key] = $value;
     }
 
-    public function clearCache() {
-        self::$cache = [];
+    private function loadSettings() {
+        $stmt = $this->db->query("SELECT `key`, value FROM system_settings");
+        self::$settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 } 
