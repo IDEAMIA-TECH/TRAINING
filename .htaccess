@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /
+
+# Redirigir todas las solicitudes a public/index.php excepto para archivos y directorios existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.php [L,QSA]
+
+# Permitir acceso a los assets
+RewriteRule ^assets/ - [L] 

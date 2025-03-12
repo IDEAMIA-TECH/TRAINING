@@ -31,22 +31,13 @@ try {
 <?php require_once '../templates/header.php'; ?>
 
 <!-- Hero Section -->
-<div class="bg-primary text-white py-5">
+<section class="hero">
     <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h1 class="display-4 fw-bold">Aprende con los Mejores</h1>
-                <p class="lead">Descubre nuestros cursos especializados y mejora tus habilidades profesionales.</p>
-                <a href="<?php echo BASE_URL; ?>/courses.php" class="btn btn-light btn-lg">
-                    Ver Cursos Disponibles
-                </a>
-            </div>
-            <div class="col-md-6">
-                <img src="<?php echo BASE_URL; ?>/assets/img/hero-image.jpg" alt="Educación Online" class="img-fluid rounded">
-            </div>
-        </div>
+        <h1>Modern Education<br>FOR EVERYONE</h1>
+        <p>Descubre nuestros cursos especializados y mejora tus habilidades profesionales.</p>
+        <a href="/courses" class="btn btn-primary">Ver Cursos</a>
     </div>
-</div>
+</section>
 
 <!-- Estadísticas -->
 <div class="bg-light py-5">
@@ -83,76 +74,83 @@ try {
     </div>
 </div>
 
-<!-- Cursos Destacados -->
-<div class="py-5">
+<!-- Características Clave -->
+<section class="features">
     <div class="container">
-        <h2 class="text-center mb-5">Cursos Destacados</h2>
-        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <i class="fas fa-graduation-cap"></i>
+                <h3>Online Courses</h3>
+                <p>Accede a contenido de calidad desde cualquier lugar.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-users"></i>
+                <h3>Expert Teachers</h3>
+                <p>Aprende con los mejores profesionales del sector.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-certificate"></i>
+                <h3>Certification</h3>
+                <p>Obtén certificados reconocidos en la industria.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Cursos Destacados -->
+<section class="courses">
+    <div class="container">
+        <h2>Cursos Destacados</h2>
         <?php if (isset($error)): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>
         <?php else: ?>
-            <div class="row row-cols-1 row-cols-md-3 g-4">
+            <div class="course-grid">
                 <?php foreach ($featured_courses as $course): ?>
-                    <div class="col">
-                        <div class="card h-100">
-                            <img src="<?php echo BASE_URL; ?>/assets/uploads/courses/<?php echo $course['main_image']; ?>" 
-                                 class="card-img-top" alt="<?php echo htmlspecialchars($course['title']); ?>">
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo htmlspecialchars($course['title']); ?></h5>
-                                <p class="card-text"><?php echo htmlspecialchars(substr($course['description'], 0, 100)) . '...'; ?></p>
-                                <ul class="list-unstyled">
-                                    <li><i class="bi bi-calendar"></i> <?php echo date('d/m/Y H:i', strtotime($course['start_date'])); ?></li>
-                                    <li><i class="bi bi-people"></i> <?php echo $course['capacity'] - $course['registered_students']; ?> lugares disponibles</li>
-                                    <li><i class="bi bi-tag"></i> $<?php echo number_format($course['price'], 2); ?></li>
-                                </ul>
+                    <div class="course-card">
+                        <img src="/assets/uploads/courses/<?php echo htmlspecialchars($course['main_image']); ?>" 
+                             alt="<?php echo htmlspecialchars($course['title']); ?>"
+                             class="course-image">
+                        <div class="course-content">
+                            <h3><?php echo htmlspecialchars($course['title']); ?></h3>
+                            <p><?php echo htmlspecialchars(substr($course['description'], 0, 100)) . '...'; ?></p>
+                            <div class="course-meta">
+                                <span><i class="fas fa-calendar"></i> <?php echo date('d/m/Y', strtotime($course['start_date'])); ?></span>
+                                <span><i class="fas fa-users"></i> <?php echo $course['capacity'] - $course['registered_students']; ?> lugares</span>
                             </div>
-                            <div class="card-footer">
-                                <a href="<?php echo BASE_URL; ?>/courses.php?id=<?php echo $course['id']; ?>" class="btn btn-primary w-100">
-                                    Ver Detalles
-                                </a>
-                            </div>
+                            <div class="course-price">$<?php echo number_format($course['price'], 2); ?></div>
+                            <a href="/courses/<?php echo $course['id']; ?>" class="btn btn-primary">Ver Detalles</a>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
-            
-            <div class="text-center mt-5">
-                <a href="<?php echo BASE_URL; ?>/courses.php" class="btn btn-outline-primary btn-lg">
-                    Ver Todos los Cursos
-                </a>
-            </div>
         <?php endif; ?>
     </div>
-</div>
+</section>
 
-<!-- Características -->
-<div class="bg-light py-5">
+<!-- Contador -->
+<section class="countdown">
     <div class="container">
-        <h2 class="text-center mb-5">¿Por qué Elegirnos?</h2>
-        <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="text-center">
-                    <i class="bi bi-award display-4 text-primary"></i>
-                    <h4 class="mt-3">Instructores Calificados</h4>
-                    <p>Aprende de profesionales con amplia experiencia en la industria.</p>
-                </div>
+        <h2>FREE INTRODUCTORY SEMINAR</h2>
+        <div class="countdown-grid">
+            <div class="countdown-item">
+                <span class="number">26</span>
+                <span class="label">Days</span>
             </div>
-            <div class="col-md-4 mb-4">
-                <div class="text-center">
-                    <i class="bi bi-laptop display-4 text-primary"></i>
-                    <h4 class="mt-3">Cursos Actualizados</h4>
-                    <p>Contenido actualizado y relevante para el mercado actual.</p>
-                </div>
+            <div class="countdown-item">
+                <span class="number">07</span>
+                <span class="label">Hours</span>
             </div>
-            <div class="col-md-4 mb-4">
-                <div class="text-center">
-                    <i class="bi bi-graph-up display-4 text-primary"></i>
-                    <h4 class="mt-3">Desarrollo Profesional</h4>
-                    <p>Mejora tus habilidades y avanza en tu carrera profesional.</p>
-                </div>
+            <div class="countdown-item">
+                <span class="number">29</span>
+                <span class="label">Minutes</span>
+            </div>
+            <div class="countdown-item">
+                <span class="number">34</span>
+                <span class="label">Seconds</span>
             </div>
         </div>
+        <a href="/register" class="btn btn-primary">Register Now</a>
     </div>
-</div>
+</section>
 
 <?php require_once '../templates/footer.php'; ?> 
