@@ -375,23 +375,27 @@ return [
                     );
                     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                    // Leer el archivo SQL
+                    // Definir el orden correcto de las tablas basado en las dependencias
+                    $tableOrder = [
+                        'users',           // Tabla base sin dependencias
+                        'categories',      // Tabla base sin dependencias
+                        'courses',         // Depende de users y categories
+                        'lessons',         // Depende de courses
+                        'enrollments',     // Depende de users y courses
+                        'progress',        // Depende de users, courses y lessons
+                        'reviews',         // Depende de users y courses
+                        'payments',        // Depende de users y courses
+                        'notifications',   // Depende de users
+                        'settings'         // Tabla independiente
+                    ];
+
+                    // Leer y procesar el archivo SQL
                     $sql = file_get_contents('database/schema.sql');
                     
-                    // Reemplazar el nombre de la base de datos en el archivo SQL
-                    $sql = preg_replace(
-                        '/USE\s+`?[^`\s]+`?;?/i',
-                        "USE `{$_SESSION['db_config']['name']}`;",
-                        $sql
-                    );
+                    // Eliminar comentarios y consultas vacías
+                    $sql = preg_replace('/--.*$/m', '', $sql);
+                    $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
                     
-                    // Reemplazar CREATE DATABASE si existe
-                    $sql = preg_replace(
-                        '/CREATE DATABASE.*?;/is',
-                        '',
-                        $sql
-                    );
-
                     // Dividir en consultas individuales
                     $queries = array_filter(
                         array_map(
@@ -400,9 +404,31 @@ return [
                         )
                     );
 
-                    // Ejecutar cada consulta
+                    // Agrupar consultas por tabla
+                    $tableQueries = [];
                     foreach ($queries as $query) {
-                        if (!empty($query)) {
+                        if (preg_match('/CREATE TABLE\s+`?(\w+)`?/i', $query, $matches)) {
+                            $tableName = $matches[1];
+                            $tableQueries[$tableName] = $query;
+                        }
+                    }
+
+                    // Ejecutar consultas en el orden correcto
+                    foreach ($tableOrder as $tableName) {
+                        if (isset($tableQueries[$tableName])) {
+                            try {
+                                $db->exec($tableQueries[$tableName]);
+                            } catch (PDOException $e) {
+                                throw new Exception(
+                                    "Error creando tabla '$tableName': " . $e->getMessage()
+                                );
+                            }
+                        }
+                    }
+
+                    // Ejecutar cualquier otra consulta que no sea CREATE TABLE
+                    foreach ($queries as $query) {
+                        if (!preg_match('/CREATE TABLE/i', $query) && trim($query) !== '') {
                             try {
                                 $db->exec($query);
                             } catch (PDOException $e) {
