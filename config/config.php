@@ -3,6 +3,7 @@
 $subdir = dirname($_SERVER['PHP_SELF']);
 $subdir = ($subdir === '/') ? '' : $subdir;
 define('BASE_URL', '//' . $_SERVER['HTTP_HOST'] . $subdir);
+define('ASSETS_URL', '//' . $_SERVER['HTTP_HOST'] . dirname($subdir) . '/assets');
 define('SITE_NAME', 'Sistema de Cursos');
 
 // Configuración de correo

@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/main.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/components.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/main.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>/css/components.css">
     
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -20,7 +20,7 @@
     <header class="header">
         <nav class="nav-container">
             <a href="<?php echo BASE_URL; ?>/index.php" class="logo">
-                <img src="<?php echo BASE_URL; ?>/assets/images/logo.png" alt="Academee">
+                <img src="<?php echo ASSETS_URL; ?>/images/logo.png" alt="Academee">
             </a>
             <div class="nav-menu">
                 <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link">HOME</a>
