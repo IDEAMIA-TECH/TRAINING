@@ -55,29 +55,6 @@ CREATE TABLE IF NOT EXISTS enrollments (
     UNIQUE KEY unique_enrollment (user_id, course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS progress (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    lesson_id INT NOT NULL,
-    completed BOOLEAN NOT NULL DEFAULT FALSE,
-    completed_at TIMESTAMP NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_progress (user_id, lesson_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS reviews (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    course_id INT NOT NULL,
-    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    comment TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_review (user_id, course_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS payments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -87,8 +64,11 @@ CREATE TABLE IF NOT EXISTS payments (
     transaction_id VARCHAR(100),
     status ENUM('pending', 'completed', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE RESTRICT
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE RESTRICT,
+    INDEX idx_user (user_id),
+    INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -124,28 +104,6 @@ CREATE TABLE course_registrations (
     INDEX idx_user_course (user_id, course_id)
 );
 
-CREATE TABLE payments (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    course_id INT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    payment_method ENUM('paypal', 'stripe') NOT NULL,
-    transaction_id VARCHAR(100),
-    status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (course_id) REFERENCES courses(id),
-    INDEX idx_user (user_id),
-    INDEX idx_status (status)
-);
-
--- Otras tablas definidas en el esquema... 
-
-ALTER TABLE payments 
-ADD COLUMN transaction_id VARCHAR(100) AFTER payment_method,
-ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP; 
-
 CREATE TABLE course_images (
     id INT PRIMARY KEY AUTO_INCREMENT,
     course_id INT NOT NULL,
@@ -154,7 +112,7 @@ CREATE TABLE course_images (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (course_id) REFERENCES courses(id),
     INDEX idx_course_main (course_id, is_main)
-); 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE email_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -166,7 +124,7 @@ CREATE TABLE email_logs (
     FOREIGN KEY (user_id) REFERENCES users(id),
     INDEX idx_type_ref (type, reference_id),
     INDEX idx_user (user_id)
-); 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE database_backups (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -176,7 +134,7 @@ CREATE TABLE database_backups (
     created_by INT NOT NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
     INDEX idx_created_at (created_at)
-); 
+);
 
 CREATE TABLE system_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -192,7 +150,7 @@ CREATE TABLE system_logs (
     INDEX idx_action (action),
     INDEX idx_entity (entity_type, entity_id),
     INDEX idx_created_at (created_at)
-); 
+);
 
 CREATE TABLE system_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -203,7 +161,7 @@ CREATE TABLE system_settings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE INDEX idx_key (setting_key)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insertar configuraciones iniciales
 INSERT INTO system_settings (setting_key, setting_value, description, type) VALUES
@@ -213,7 +171,7 @@ INSERT INTO system_settings (setting_key, setting_value, description, type) VALU
 ('payment_methods', '["paypal","stripe"]', 'Métodos de pago habilitados', 'json'),
 ('max_course_capacity', '50', 'Capacidad máxima por defecto para cursos', 'number'),
 ('reminder_days', '1', 'Días antes para enviar recordatorio de curso', 'number'),
-('maintenance_mode', '0', 'Modo mantenimiento', 'boolean'); 
+('maintenance_mode', '0', 'Modo mantenimiento', 'boolean');
 
 CREATE TABLE rate_limits (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -222,4 +180,4 @@ CREATE TABLE rate_limits (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ip_endpoint (ip_address, endpoint),
     INDEX idx_created_at (created_at)
-); 
+);
