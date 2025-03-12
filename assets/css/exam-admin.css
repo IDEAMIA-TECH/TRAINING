@@ -1,0 +1,124 @@
+/* Contenedor de preguntas */
+.questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.question-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.question-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: var(--light-color);
+    border-bottom: 1px solid #eee;
+}
+
+.question-number {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    margin-right: 1rem;
+    font-weight: bold;
+}
+
+.question-type {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin-right: auto;
+}
+
+.question-points {
+    background: var(--success-color);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+}
+
+.question-content {
+    padding: 1rem;
+}
+
+.question-text {
+    margin: 0 0 1rem 0;
+    color: var(--dark-color);
+}
+
+.options-count {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+}
+
+.explanation {
+    margin-top: 0.5rem;
+    color: var(--info-color);
+    font-size: 0.9rem;
+}
+
+.question-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--light-color);
+    border-top: 1px solid #eee;
+}
+
+.stats {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Modal de pregunta */
+.option-item {
+    position: relative;
+}
+
+.remove-option {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .questions-list {
+        padding: 0.5rem;
+    }
+    
+    .question-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .question-number {
+        width: 25px;
+        height: 25px;
+        font-size: 0.9rem;
+    }
+    
+    .question-type {
+        width: 100%;
+        order: 3;
+        margin: 0;
+    }
+} 

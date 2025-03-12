@@ -1,0 +1,104 @@
+/* Contenedor de verificación */
+.verify-container {
+    max-width: 800px;
+    margin: 3rem auto;
+    padding: 0 1rem;
+}
+
+.verify-box {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.verify-box h1 {
+    text-align: center;
+    color: var(--primary-color);
+    margin-bottom: 2rem;
+}
+
+/* Formulario de verificación */
+.verify-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.verify-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+/* Detalles del certificado */
+.certificate-details {
+    position: relative;
+    padding-top: 3rem;
+}
+
+.status-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.badge-success {
+    background: #28a745;
+    color: white;
+}
+
+.badge-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.detail-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.detail-group:last-child {
+    border-bottom: none;
+}
+
+.detail-group label {
+    display: block;
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.detail-group p {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--dark-color);
+}
+
+/* Botones */
+.certificate-details .btn {
+    margin-right: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .verify-container {
+        margin: 1rem auto;
+    }
+    
+    .verify-box {
+        padding: 1.5rem;
+    }
+    
+    .verify-box h1 {
+        font-size: 1.5rem;
+    }
+    
+    .certificate-details {
+        padding-top: 4rem;
+    }
+} 
