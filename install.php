@@ -7,12 +7,67 @@ $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
 $error = '';
 $success = '';
 
-// Verificar si ya está instalado - CORREGIDO
-if (file_exists('config/config.php') && is_readable('config/config.php')) {
-    $config_content = file_get_contents('config/config.php');
-    if (strpos($config_content, 'DB_HOST') !== false && $step === 1) {
-        die('El sistema ya está instalado. Por seguridad, elimina el archivo install.php');
+// TEMPORAL: Forzar reinstalación (ELIMINAR EN PRODUCCIÓN)
+if (isset($_GET['force_reinstall'])) {
+    if (file_exists('config/config.php')) {
+        unlink('config/config.php');
     }
+    if (file_exists('config/database.php')) {
+        unlink('config/database.php');
+    }
+    if (file_exists('config/mail.php')) {
+        unlink('config/mail.php');
+    }
+    if (file_exists('config/app.php')) {
+        unlink('config/app.php');
+    }
+    if (is_dir('config')) {
+        rmdir('config');
+    }
+    header('Location: install.php');
+    exit;
+}
+
+// Verificar si ya está instalado - NUEVA VERSIÓN
+function isInstalled() {
+    // Verificar si existe el archivo de configuración
+    if (!file_exists('config/config.php')) {
+        return false;
+    }
+
+    // Verificar si podemos leer el archivo
+    if (!is_readable('config/config.php')) {
+        return false;
+    }
+
+    try {
+        // Intentar incluir el archivo de configuración
+        include 'config/config.php';
+        
+        // Verificar si las constantes básicas están definidas
+        if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER')) {
+            return false;
+        }
+
+        // Intentar conectar a la base de datos
+        $dsn = "mysql:host=".DB_HOST.";dbname=".DB_NAME.";charset=utf8mb4";
+        $db = new PDO($dsn, DB_USER, DB_PASS);
+        
+        // Verificar si existe la tabla de usuarios
+        $stmt = $db->query("SHOW TABLES LIKE 'users'");
+        if ($stmt->rowCount() == 0) {
+            return false;
+        }
+
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// Solo verificar si está instalado en el primer paso
+if ($step === 1 && isInstalled()) {
+    die('El sistema ya está instalado. Por seguridad, elimina el archivo install.php');
 }
 
 // Verificar requisitos del sistema
