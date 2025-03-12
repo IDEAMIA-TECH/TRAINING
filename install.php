@@ -375,8 +375,24 @@ return [
                     );
                     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                    // Leer el archivo SQL y dividirlo en consultas
+                    // Leer el archivo SQL
                     $sql = file_get_contents('database/schema.sql');
+                    
+                    // Reemplazar el nombre de la base de datos en el archivo SQL
+                    $sql = preg_replace(
+                        '/USE\s+`?[^`\s]+`?;?/i',
+                        "USE `{$_SESSION['db_config']['name']}`;",
+                        $sql
+                    );
+                    
+                    // Reemplazar CREATE DATABASE si existe
+                    $sql = preg_replace(
+                        '/CREATE DATABASE.*?;/is',
+                        '',
+                        $sql
+                    );
+
+                    // Dividir en consultas individuales
                     $queries = array_filter(
                         array_map(
                             'trim',
@@ -386,19 +402,26 @@ return [
 
                     // Ejecutar cada consulta
                     foreach ($queries as $query) {
-                        if (!empty($query) && strpos($query, 'CREATE DATABASE') === false) {
+                        if (!empty($query)) {
                             try {
                                 $db->exec($query);
                             } catch (PDOException $e) {
-                                throw new Exception("Error en consulta: " . substr($query, 0, 100) . "...\n" . $e->getMessage());
+                                // Ignorar errores de "tabla ya existe" y similares
+                                if ($e->getCode() != '42S01' && $e->getCode() != '42S02') {
+                                    throw new Exception(
+                                        "Error en consulta: " . substr($query, 0, 100) . "...\n" . 
+                                        "Código: " . $e->getCode() . "\n" . 
+                                        "Error: " . $e->getMessage()
+                                    );
+                                }
                             }
                         }
                     }
 
                     // Crear usuario administrador
                     $stmt = $db->prepare("
-                        INSERT INTO users (name, email, password, role) 
-                        VALUES ('Administrator', ?, ?, 'admin')
+                        INSERT INTO users (name, email, password, role, created_at) 
+                        VALUES ('Administrator', ?, ?, 'admin', NOW())
                     ");
                     $stmt->execute([
                         $_SESSION['site_config']['email'],
@@ -406,7 +429,13 @@ return [
                     ]);
 
                 } catch (PDOException $e) {
-                    throw new Exception("Error en la base de datos: " . $e->getMessage());
+                    throw new Exception(
+                        "Error en la base de datos. Verifica que:\n" .
+                        "1. El usuario tenga TODOS los privilegios en la base de datos\n" .
+                        "2. La base de datos esté vacía\n" .
+                        "3. Las credenciales sean correctas\n\n" .
+                        "Error específico: " . $e->getMessage()
+                    );
                 }
 
                 // Limpiar sesión
