@@ -21,7 +21,13 @@ function format_currency($amount) {
 }
 
 function redirect($path) {
-    header("Location: " . BASE_URL . $path);
+    // Debug log
+    error_log("Redirigiendo a: " . BASE_URL . '/' . $path);
+    
+    // Asegurarnos de que no hay dobles slashes
+    $path = ltrim($path, '/');
+    
+    header("Location: " . BASE_URL . '/' . $path);
     exit();
 }
 

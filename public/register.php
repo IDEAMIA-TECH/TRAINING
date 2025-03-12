@@ -2,7 +2,7 @@
 require_once '../includes/init.php';
 
 if ($user_authenticated) {
-    redirect('/index.php');
+    redirect('index.php');
 }
 
 $errors = [];
@@ -12,6 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = sanitize_input($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
+
+    // Debug log
+    error_log("Iniciando proceso de registro para email: " . $email);
 
     // Validaciones
     if (empty($name)) {
@@ -43,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetch()) {
                 $errors[] = "Este correo electrónico ya está registrado";
             } else {
+                // Debug log
+                error_log("Insertando nuevo usuario en la base de datos");
+
                 // Insertar nuevo usuario
                 $stmt = $db->prepare("
                     INSERT INTO users (name, email, password, role, status, created_at) 
@@ -57,18 +63,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hashed_password
                 ]);
 
+                $user_id = $db->lastInsertId();
+                
+                // Debug log
+                error_log("Usuario creado con ID: " . $user_id);
+
                 // Iniciar sesión automáticamente
-                $_SESSION['user_id'] = $db->lastInsertId();
+                $_SESSION['user_id'] = $user_id;
                 $_SESSION['user_name'] = $name;
                 $_SESSION['role'] = 'client';
 
+                // Debug log
+                error_log("Sesión iniciada, redirigiendo a dashboard");
+
                 // Redireccionar al dashboard
-                redirect('/dashboard.php');
+                redirect('dashboard.php');
+                exit();
             }
         } catch (PDOException $e) {
-            error_log("Error en registro: " . $e->getMessage());
+            error_log("Error en registro - SQL Error: " . $e->getMessage());
+            error_log("SQL State: " . $e->errorInfo[0]);
+            error_log("Error Code: " . $e->errorInfo[1]);
+            error_log("Message: " . $e->errorInfo[2]);
             $errors[] = "Error al registrar usuario. Por favor intente más tarde.";
+        } catch (Exception $e) {
+            error_log("Error general en registro: " . $e->getMessage());
+            $errors[] = "Error inesperado. Por favor intente más tarde.";
         }
+    } else {
+        error_log("Errores de validación: " . print_r($errors, true));
     }
 }
 ?>
