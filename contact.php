@@ -1,126 +1,97 @@
 <?php
-require_once 'includes/header.php';
+require_once 'includes/config.php';
+require_once 'includes/ContactManager.php';
 
-$success = false;
+$contactManager = new ContactManager($conn, $mailer);
 $error = null;
+$success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Validar campos
-        if (empty($_POST['name']) || empty($_POST['email']) || empty($_POST['message'])) {
-            throw new Exception('Todos los campos son requeridos');
+        $required = ['name', 'email', 'subject', 'message'];
+        foreach ($required as $field) {
+            if (empty($_POST[$field])) {
+                throw new Exception("El campo {$field} es requerido");
+            }
         }
         
         if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
-            throw new Exception('Email inválido');
+            throw new Exception("El email no es válido");
         }
         
-        // Preparar datos
-        $data = [
-            'name' => trim($_POST['name']),
-            'email' => trim($_POST['email']),
-            'subject' => trim($_POST['subject'] ?? ''),
-            'message' => trim($_POST['message']),
-            'created_at' => date('Y-m-d H:i:s')
-        ];
-        
-        // Guardar en base de datos
-        $stmt = $conn->prepare("
-            INSERT INTO contact_messages (name, email, subject, message, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([
-            $data['name'],
-            $data['email'],
-            $data['subject'],
-            $data['message'],
-            $data['created_at']
+        // Enviar mensaje
+        $contactManager->submitMessage([
+            'name' => $_POST['name'],
+            'email' => $_POST['email'],
+            'subject' => $_POST['subject'],
+            'message' => $_POST['message'],
+            'user_id' => $currentUser->id ?? null
         ]);
         
-        // Enviar email de notificación
-        $to = ADMIN_EMAIL;
-        $subject = "Nuevo mensaje de contacto: " . $data['subject'];
-        $message = "Nombre: {$data['name']}\n";
-        $message .= "Email: {$data['email']}\n\n";
-        $message .= "Mensaje:\n{$data['message']}";
-        $headers = "From: {$data['email']}\r\n";
-        $headers .= "Reply-To: {$data['email']}\r\n";
-        
-        mail($to, $subject, $message, $headers);
-        
         $success = true;
+        
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
 }
 ?>
 
-<div class="contact-container">
-    <div class="contact-info">
-        <h1>Contáctanos</h1>
-        <p>¿Tienes alguna pregunta o comentario? No dudes en contactarnos.</p>
-        
-        <div class="contact-methods">
-            <div class="contact-method">
-                <i class="fas fa-envelope"></i>
-                <h3>Email</h3>
-                <p><?php echo CONTACT_EMAIL; ?></p>
-            </div>
-            
-            <div class="contact-method">
-                <i class="fas fa-phone"></i>
-                <h3>Teléfono</h3>
-                <p><?php echo CONTACT_PHONE; ?></p>
-            </div>
-            
-            <div class="contact-method">
-                <i class="fas fa-map-marker-alt"></i>
-                <h3>Dirección</h3>
-                <p><?php echo CONTACT_ADDRESS; ?></p>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Contacto - <?php echo SITE_NAME; ?></title>
+    <?php include 'includes/head.php'; ?>
+</head>
+<body>
+    <?php include 'includes/header.php'; ?>
+    
+    <div class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <h1 class="mb-4">Contáctanos</h1>
+                
+                <?php if ($success): ?>
+                    <div class="alert alert-success">
+                        Tu mensaje ha sido enviado correctamente. Te responderemos lo antes posible.
+                    </div>
+                <?php endif; ?>
+                
+                <?php if ($error): ?>
+                    <div class="alert alert-danger">
+                        <?php echo htmlspecialchars($error); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <form method="post" action="">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="name" name="name" required
+                               value="<?php echo $currentUser->name ?? ''; ?>">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required
+                               value="<?php echo $currentUser->email ?? ''; ?>">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">Asunto</label>
+                        <input type="text" class="form-control" id="subject" name="subject" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="message" class="form-label">Mensaje</label>
+                        <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Enviar Mensaje</button>
+                </form>
             </div>
         </div>
     </div>
     
-    <div class="contact-form-container">
-        <?php if ($success): ?>
-            <div class="alert alert-success">
-                Tu mensaje ha sido enviado correctamente. Te contactaremos pronto.
-            </div>
-        <?php endif; ?>
-        
-        <?php if ($error): ?>
-            <div class="alert alert-danger">
-                <?php echo $error; ?>
-            </div>
-        <?php endif; ?>
-        
-        <form method="POST" class="contact-form">
-            <div class="form-group">
-                <label for="name">Nombre *</label>
-                <input type="text" id="name" name="name" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="subject">Asunto</label>
-                <input type="text" id="subject" name="subject">
-            </div>
-            
-            <div class="form-group">
-                <label for="message">Mensaje *</label>
-                <textarea id="message" name="message" rows="5" required></textarea>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">
-                Enviar Mensaje
-            </button>
-        </form>
-    </div>
-</div>
-
-<?php require_once 'includes/footer.php'; ?> 
+    <?php include 'includes/footer.php'; ?>
+</body>
+</html> 

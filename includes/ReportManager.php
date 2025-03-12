@@ -1,273 +1,225 @@
 <?php
 class ReportManager {
     private $conn;
+    private $outputPath;
     
-    public function __construct($conn) {
+    public function __construct($conn, $config = []) {
         $this->conn = $conn;
+        $this->outputPath = $config['output_path'] ?? 'reports/';
     }
     
-    public function generateReport($type, $parameters = []) {
-        switch ($type) {
-            case 'course_performance':
-                return $this->generateCoursePerformanceReport($parameters);
-            case 'user_activity':
-                return $this->generateUserActivityReport($parameters);
-            case 'enrollment_trends':
-                return $this->generateEnrollmentTrendsReport($parameters);
-            case 'exam_statistics':
-                return $this->generateExamStatisticsReport($parameters);
-            default:
-                throw new Exception("Tipo de reporte no válido");
+    public function generateReport($reportId, $parameters = [], $userId = null, $format = 'csv') {
+        // Registrar ejecución
+        $executionId = $this->createExecution($reportId, $userId, $parameters);
+        
+        try {
+            // Obtener definición del reporte
+            $report = $this->getReport($reportId);
+            if (!$report) {
+                throw new Exception("Reporte no encontrado");
+            }
+            
+            // Validar parámetros
+            $this->validateParameters($report['parameters'], $parameters);
+            
+            // Preparar y ejecutar consulta
+            $stmt = $this->conn->prepare($report['query']);
+            $stmt->execute($parameters);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Generar archivo
+            $filename = $this->generateFilename($report['name'], $format);
+            $filePath = $this->outputPath . $filename;
+            
+            switch ($format) {
+                case 'csv':
+                    $this->generateCSV($data, $filePath);
+                    break;
+                case 'excel':
+                    $this->generateExcel($data, $filePath);
+                    break;
+                case 'pdf':
+                    $this->generatePDF($data, $filePath, $report);
+                    break;
+                case 'html':
+                    $this->generateHTML($data, $filePath, $report);
+                    break;
+                default:
+                    throw new Exception("Formato no soportado");
+            }
+            
+            // Actualizar ejecución como completada
+            $this->updateExecution($executionId, 'completed', $filename);
+            
+            return $filename;
+            
+        } catch (Exception $e) {
+            // Registrar error
+            $this->updateExecution($executionId, 'failed', null, $e->getMessage());
+            throw $e;
         }
     }
     
-    private function generateCoursePerformanceReport($params) {
-        $courseId = $params['course_id'] ?? null;
-        $startDate = $params['start_date'] ?? null;
-        $endDate = $params['end_date'] ?? null;
+    public function scheduleReport($reportId, $schedule) {
+        $stmt = $this->conn->prepare("
+            UPDATE reports
+            SET schedule = ?,
+                next_run = ?
+            WHERE id = ?
+        ");
         
-        $where = [];
-        $values = [];
+        $nextRun = $this->calculateNextRun($schedule);
+        return $stmt->execute([$schedule, $nextRun, $reportId]);
+    }
+    
+    public function runScheduledReports() {
+        $stmt = $this->conn->prepare("
+            SELECT id, parameters, format
+            FROM reports
+            WHERE is_active = TRUE
+            AND schedule IS NOT NULL
+            AND next_run <= NOW()
+        ");
         
-        if ($courseId) {
-            $where[] = "c.id = ?";
-            $values[] = $courseId;
+        $stmt->execute();
+        $reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($reports as $report) {
+            try {
+                $this->generateReport(
+                    $report['id'],
+                    json_decode($report['parameters'], true),
+                    null,
+                    $report['format']
+                );
+                
+                // Actualizar próxima ejecución
+                $this->updateNextRun($report['id'], $report['schedule']);
+                
+            } catch (Exception $e) {
+                // Log error pero continuar con el siguiente
+                error_log("Error en reporte programado: " . $e->getMessage());
+            }
+        }
+    }
+    
+    private function generateCSV($data, $filePath) {
+        if (empty($data)) {
+            throw new Exception("No hay datos para generar el reporte");
         }
         
-        if ($startDate) {
-            $where[] = "cs.last_updated >= ?";
-            $values[] = $startDate;
+        $fp = fopen($filePath, 'w');
+        
+        // Escribir encabezados
+        fputcsv($fp, array_keys($data[0]));
+        
+        // Escribir datos
+        foreach ($data as $row) {
+            fputcsv($fp, $row);
         }
         
-        if ($endDate) {
-            $where[] = "cs.last_updated <= ?";
-            $values[] = $endDate;
+        fclose($fp);
+    }
+    
+    private function generateExcel($data, $filePath) {
+        // Implementar generación de Excel
+        // Requiere librería como PhpSpreadsheet
+    }
+    
+    private function generatePDF($data, $filePath, $report) {
+        // Implementar generación de PDF
+        // Requiere librería como TCPDF o FPDF
+    }
+    
+    private function generateHTML($data, $filePath, $report) {
+        $html = '<html><head><style>';
+        $html .= 'table {border-collapse: collapse; width: 100%;}';
+        $html .= 'th, td {border: 1px solid #ddd; padding: 8px; text-align: left;}';
+        $html .= 'th {background-color: #f2f2f2;}';
+        $html .= '</style></head><body>';
+        
+        $html .= "<h1>{$report['name']}</h1>";
+        if ($report['description']) {
+            $html .= "<p>{$report['description']}</p>";
         }
         
-        $whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+        $html .= '<table><tr>';
+        foreach (array_keys($data[0]) as $header) {
+            $html .= "<th>$header</th>";
+        }
+        $html .= '</tr>';
         
-        $sql = "
-            SELECT 
-                c.title as course_name,
-                cs.total_students,
-                cs.completion_rate,
-                cs.average_score,
-                ROUND(cs.total_time_spent / 60, 1) as total_hours_spent,
-                (
-                    SELECT COUNT(*)
-                    FROM exam_attempts ea
-                    JOIN exams e ON ea.exam_id = e.id
-                    WHERE e.course_id = c.id AND ea.status = 'completed'
-                ) as total_exam_attempts,
-                (
-                    SELECT AVG(score)
-                    FROM exam_attempts ea
-                    JOIN exams e ON ea.exam_id = e.id
-                    WHERE e.course_id = c.id AND ea.status = 'completed'
-                ) as average_exam_score
-            FROM courses c
-            JOIN course_statistics cs ON c.id = cs.course_id
-            $whereClause
-            ORDER BY cs.total_students DESC
-        ";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute($values);
-        
-        return [
-            'type' => 'course_performance',
-            'title' => 'Reporte de Rendimiento de Cursos',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ];
-    }
-    
-    private function generateUserActivityReport($params) {
-        $startDate = $params['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
-        $endDate = $params['end_date'] ?? date('Y-m-d');
-        
-        $sql = "
-            SELECT 
-                DATE(al.created_at) as date,
-                COUNT(DISTINCT al.user_id) as active_users,
-                COUNT(*) as total_actions,
-                action_type,
-                entity_type
-            FROM activity_logs al
-            WHERE al.created_at BETWEEN ? AND ?
-            GROUP BY DATE(al.created_at), action_type, entity_type
-            ORDER BY date DESC
-        ";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$startDate, $endDate]);
-        
-        return [
-            'type' => 'user_activity',
-            'title' => 'Reporte de Actividad de Usuarios',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ];
-    }
-    
-    private function generateEnrollmentTrendsReport($params) {
-        $period = $params['period'] ?? 'monthly';
-        $limit = $params['limit'] ?? 12;
-        
-        $groupBy = $period === 'daily' ? 'DATE(e.created_at)' : 
-                  ($period === 'weekly' ? 'YEARWEEK(e.created_at)' : 'DATE_FORMAT(e.created_at, "%Y-%m")');
-        
-        $sql = "
-            SELECT 
-                $groupBy as period,
-                COUNT(*) as total_enrollments,
-                COUNT(DISTINCT e.course_id) as unique_courses,
-                COUNT(DISTINCT e.user_id) as unique_users
-            FROM enrollments e
-            GROUP BY period
-            ORDER BY period DESC
-            LIMIT ?
-        ";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$limit]);
-        
-        return [
-            'type' => 'enrollment_trends',
-            'title' => 'Tendencias de Inscripción',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ];
-    }
-    
-    private function generateExamStatisticsReport($params) {
-        $courseId = $params['course_id'] ?? null;
-        
-        $where = [];
-        $values = [];
-        
-        if ($courseId) {
-            $where[] = "e.course_id = ?";
-            $values[] = $courseId;
+        foreach ($data as $row) {
+            $html .= '<tr>';
+            foreach ($row as $value) {
+                $html .= "<td>$value</td>";
+            }
+            $html .= '</tr>';
         }
         
-        $whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+        $html .= '</table></body></html>';
         
-        $sql = "
-            SELECT 
-                e.title as exam_title,
-                c.title as course_title,
-                COUNT(ea.id) as total_attempts,
-                ROUND(AVG(ea.score), 2) as average_score,
-                (
-                    SELECT COUNT(*)
-                    FROM exam_attempts ea2
-                    WHERE ea2.exam_id = e.id AND ea2.score >= e.passing_score
-                ) as passed_count,
-                (
-                    SELECT COUNT(*)
-                    FROM exam_attempts ea2
-                    WHERE ea2.exam_id = e.id AND ea2.score < e.passing_score
-                ) as failed_count
-            FROM exams e
-            JOIN courses c ON e.course_id = c.id
-            LEFT JOIN exam_attempts ea ON e.id = ea.exam_id
-            $whereClause
-            GROUP BY e.id
-            ORDER BY total_attempts DESC
-        ";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute($values);
-        
-        return [
-            'type' => 'exam_statistics',
-            'title' => 'Estadísticas de Exámenes',
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-        ];
+        file_put_contents($filePath, $html);
     }
     
-    public function updateStatistics() {
-        // Actualizar estadísticas de cursos
-        $this->updateCourseStatistics();
+    private function createExecution($reportId, $userId, $parameters) {
+        $stmt = $this->conn->prepare("
+            INSERT INTO report_executions (
+                report_id, user_id, parameters,
+                status, started_at
+            ) VALUES (?, ?, ?, 'processing', NOW())
+        ");
         
-        // Actualizar estadísticas de usuarios
-        $this->updateUserStatistics();
+        $stmt->execute([
+            $reportId,
+            $userId,
+            json_encode($parameters)
+        ]);
+        
+        return $this->conn->lastInsertId();
     }
     
-    private function updateCourseStatistics() {
-        $sql = "
-            INSERT INTO course_statistics (course_id, total_students, completion_rate, average_score, total_time_spent)
-            SELECT 
-                c.id,
-                COUNT(DISTINCT e.user_id) as total_students,
-                (
-                    SELECT COUNT(DISTINCT user_id) * 100.0 / NULLIF(COUNT(DISTINCT e2.user_id), 0)
-                    FROM course_progress cp
-                    JOIN enrollments e2 ON cp.enrollment_id = e2.id
-                    WHERE e2.course_id = c.id AND cp.completed = TRUE
-                ) as completion_rate,
-                (
-                    SELECT AVG(score)
-                    FROM exam_attempts ea
-                    JOIN exams ex ON ea.exam_id = ex.id
-                    WHERE ex.course_id = c.id AND ea.status = 'completed'
-                ) as average_score,
-                COALESCE(
-                    (
-                        SELECT SUM(TIMESTAMPDIFF(MINUTE, start_time, IFNULL(end_time, NOW())))
-                        FROM course_progress cp
-                        JOIN enrollments e2 ON cp.enrollment_id = e2.id
-                        WHERE e2.course_id = c.id
-                    ),
-                    0
-                ) as total_time_spent
-            FROM courses c
-            LEFT JOIN enrollments e ON c.id = e.course_id
-            GROUP BY c.id
-            ON DUPLICATE KEY UPDATE
-                total_students = VALUES(total_students),
-                completion_rate = VALUES(completion_rate),
-                average_score = VALUES(average_score),
-                total_time_spent = VALUES(total_time_spent)
-        ";
+    private function updateExecution($executionId, $status, $filePath = null, $errorMessage = null) {
+        $stmt = $this->conn->prepare("
+            UPDATE report_executions
+            SET status = ?,
+                file_path = ?,
+                error_message = ?,
+                completed_at = NOW()
+            WHERE id = ?
+        ");
         
-        $this->conn->query($sql);
+        return $stmt->execute([
+            $status,
+            $filePath,
+            $errorMessage,
+            $executionId
+        ]);
     }
     
-    private function updateUserStatistics() {
-        $sql = "
-            INSERT INTO user_statistics (
-                user_id, courses_enrolled, courses_completed, 
-                total_time_spent, average_score, last_activity
-            )
-            SELECT 
-                u.id,
-                COUNT(DISTINCT e.course_id) as courses_enrolled,
-                COUNT(DISTINCT CASE WHEN cp.completed = TRUE THEN e.course_id END) as courses_completed,
-                COALESCE(
-                    SUM(TIMESTAMPDIFF(MINUTE, cp.start_time, IFNULL(cp.end_time, NOW()))),
-                    0
-                ) as total_time_spent,
-                (
-                    SELECT AVG(score)
-                    FROM exam_attempts ea
-                    WHERE ea.user_id = u.id AND ea.status = 'completed'
-                ) as average_score,
-                (
-                    SELECT MAX(created_at)
-                    FROM activity_logs
-                    WHERE user_id = u.id
-                ) as last_activity
-            FROM users u
-            LEFT JOIN enrollments e ON u.id = e.user_id
-            LEFT JOIN course_progress cp ON e.id = cp.enrollment_id
-            GROUP BY u.id
-            ON DUPLICATE KEY UPDATE
-                courses_enrolled = VALUES(courses_enrolled),
-                courses_completed = VALUES(courses_completed),
-                total_time_spent = VALUES(total_time_spent),
-                average_score = VALUES(average_score),
-                last_activity = VALUES(last_activity)
-        ";
+    private function validateParameters($required, $provided) {
+        $required = json_decode($required, true);
         
-        $this->conn->query($sql);
+        foreach ($required as $param => $config) {
+            if ($config['required'] && !isset($provided[$param])) {
+                throw new Exception("Falta el parámetro requerido: {$config['label']}");
+            }
+        }
+    }
+    
+    private function generateFilename($reportName, $format) {
+        $basename = strtolower(str_replace(' ', '_', $reportName));
+        return sprintf(
+            '%s_%s.%s',
+            $basename,
+            date('Y-m-d_His'),
+            $format
+        );
+    }
+    
+    private function calculateNextRun($schedule) {
+        // Implementar lógica para calcular próxima ejecución
+        // basado en el formato del schedule (cron, daily, weekly, etc.)
+        return date('Y-m-d H:i:s', strtotime('+1 day'));
     }
 } 

@@ -1,164 +1,184 @@
 <?php
 class NotificationManager {
     private $conn;
+    private $mailer;
     
-    public function __construct($conn) {
+    public function __construct($conn, $mailer = null) {
         $this->conn = $conn;
+        $this->mailer = $mailer;
     }
     
-    public function createNotification($user_id, $title, $message, $type = 'info', $link = null) {
-        $stmt = $this->conn->prepare("
-            INSERT INTO notifications (user_id, title, message, type, link)
-            VALUES (?, ?, ?, ?, ?)
-        ");
+    public function createNotification($data) {
+        $this->conn->beginTransaction();
         
-        return $stmt->execute([$user_id, $title, $message, $type, $link]);
+        try {
+            $stmt = $this->conn->prepare("
+                INSERT INTO notifications (
+                    user_id, type, title,
+                    message, data
+                ) VALUES (?, ?, ?, ?, ?)
+            ");
+            
+            $stmt->execute([
+                $data['user_id'],
+                $data['type'],
+                $data['title'],
+                $data['message'],
+                json_encode($data['data'] ?? null)
+            ]);
+            
+            $notificationId = $this->conn->lastInsertId();
+            
+            // Verificar preferencias de email
+            $prefs = $this->getPreferences($data['user_id'], $data['type']);
+            
+            if ($prefs && $prefs['email_enabled'] && $this->mailer) {
+                $this->sendEmailNotification($data);
+                
+                $stmt = $this->conn->prepare("
+                    UPDATE notifications
+                    SET is_email_sent = TRUE
+                    WHERE id = ?
+                ");
+                $stmt->execute([$notificationId]);
+            }
+            
+            $this->conn->commit();
+            return $notificationId;
+            
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            throw $e;
+        }
     }
     
-    public function createNotificationFromTemplate($user_id, $template_code, $replacements = [], $link = null) {
-        $stmt = $this->conn->prepare("
-            SELECT * FROM notification_templates WHERE code = ?
-        ");
-        $stmt->execute([$template_code]);
-        $template = $stmt->fetch(PDO::FETCH_ASSOC);
+    public function getNotifications($userId, $onlyUnread = false, $limit = 50) {
+        $sql = "
+            SELECT *
+            FROM notifications
+            WHERE user_id = ?
+        ";
         
-        if (!$template) {
-            throw new Exception("Plantilla no encontrada");
+        if ($onlyUnread) {
+            $sql .= " AND is_read = FALSE";
         }
         
-        $title = $template['title'];
-        $message = $template['message'];
+        $sql .= " ORDER BY created_at DESC LIMIT ?";
         
-        // Reemplazar variables en el título y mensaje
-        foreach ($replacements as $key => $value) {
-            $title = str_replace("{{$key}}", $value, $title);
-            $message = str_replace("{{$key}}", $value, $message);
-        }
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$userId, $limit]);
         
-        return $this->createNotification(
-            $user_id,
-            $title,
-            $message,
-            $template['type'],
-            $link
-        );
-    }
-    
-    public function getUnreadCount($user_id) {
-        $stmt = $this->conn->prepare("
-            SELECT COUNT(*) as count 
-            FROM notifications 
-            WHERE user_id = ? AND is_read = FALSE
-        ");
-        $stmt->execute([$user_id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-    }
-    
-    public function getNotifications($user_id, $limit = 20, $offset = 0) {
-        $stmt = $this->conn->prepare("
-            SELECT * FROM notifications 
-            WHERE user_id = ? 
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-        ");
-        $stmt->execute([$user_id, $limit, $offset]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    public function markAsRead($notification_id, $user_id) {
+    public function markAsRead($notificationId, $userId) {
         $stmt = $this->conn->prepare("
-            UPDATE notifications 
-            SET is_read = TRUE 
-            WHERE id = ? AND user_id = ?
+            UPDATE notifications
+            SET is_read = TRUE,
+                read_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            AND user_id = ?
         ");
-        return $stmt->execute([$notification_id, $user_id]);
-    }
-    
-    public function markAllAsRead($user_id) {
-        $stmt = $this->conn->prepare("
-            UPDATE notifications 
-            SET is_read = TRUE 
-            WHERE user_id = ?
-        ");
-        return $stmt->execute([$user_id]);
-    }
-    
-    public function deleteNotification($notification_id, $user_id) {
-        $stmt = $this->conn->prepare("
-            DELETE FROM notifications 
-            WHERE id = ? AND user_id = ?
-        ");
-        return $stmt->execute([$notification_id, $user_id]);
-    }
-    
-    public function getUserPreferences($user_id) {
-        $stmt = $this->conn->prepare("
-            SELECT * FROM notification_preferences 
-            WHERE user_id = ?
-        ");
-        $stmt->execute([$user_id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    public function updatePreferences($user_id, $email_notifications, $browser_notifications) {
-        $stmt = $this->conn->prepare("
-            INSERT INTO notification_preferences (user_id, email_notifications, browser_notifications)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            email_notifications = VALUES(email_notifications),
-            browser_notifications = VALUES(browser_notifications)
-        ");
-        return $stmt->execute([$user_id, $email_notifications, $browser_notifications]);
-    }
-    
-    public function sendEmailNotification($user_id, $title, $message) {
-        $stmt = $this->conn->prepare("
-            SELECT u.email, np.email_notifications
-            FROM users u
-            LEFT JOIN notification_preferences np ON u.id = np.user_id
-            WHERE u.id = ?
-        ");
-        $stmt->execute([$user_id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$user || !$user['email_notifications']) {
-            return false;
+        return $stmt->execute([$notificationId, $userId]);
+    }
+    
+    public function markAllAsRead($userId) {
+        $stmt = $this->conn->prepare("
+            UPDATE notifications
+            SET is_read = TRUE,
+                read_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+            AND is_read = FALSE
+        ");
+        
+        return $stmt->execute([$userId]);
+    }
+    
+    public function updatePreferences($userId, $preferences) {
+        foreach ($preferences as $type => $enabled) {
+            $stmt = $this->conn->prepare("
+                INSERT INTO notification_preferences (
+                    user_id, type,
+                    email_enabled, web_enabled
+                ) VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    email_enabled = VALUES(email_enabled),
+                    web_enabled = VALUES(web_enabled)
+            ");
+            
+            $stmt->execute([
+                $userId,
+                $type,
+                $enabled['email'] ?? true,
+                $enabled['web'] ?? true
+            ]);
+        }
+    }
+    
+    public function getPreferences($userId, $type = null) {
+        $sql = "
+            SELECT *
+            FROM notification_preferences
+            WHERE user_id = ?
+        ";
+        
+        if ($type) {
+            $sql .= " AND type = ?";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute([$userId, $type]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
         }
         
-        $headers = "From: " . ADMIN_EMAIL . "\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        
-        $email_body = $this->getEmailTemplate($title, $message);
-        
-        return mail($user['email'], $title, $email_body, $headers);
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    private function getEmailTemplate($title, $message) {
-        return "
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: #f8f9fa; padding: 20px; text-align: center; }
-                    .content { padding: 20px; }
-                    .footer { text-align: center; padding: 20px; color: #6c757d; }
-                </style>
-            </head>
-            <body>
-                <div class='container'>
-                    <div class='header'>
-                        <h2>{$title}</h2>
-                    </div>
-                    <div class='content'>
-                        {$message}
-                    </div>
-                    <div class='footer'>
-                        Este es un mensaje automático, por favor no responder.
-                    </div>
-                </div>
-            </body>
-            </html>
-        ";
+    private function sendEmailNotification($data) {
+        if (!$this->mailer) return false;
+        
+        // Obtener información del usuario
+        $stmt = $this->conn->prepare("
+            SELECT name, email
+            FROM users
+            WHERE id = ?
+        ");
+        $stmt->execute([$data['user_id']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) return false;
+        
+        return $this->mailer->send(
+            $user['email'],
+            $data['title'],
+            $this->formatEmailMessage($data, $user)
+        );
+    }
+    
+    private function formatEmailMessage($data, $user) {
+        // Implementar plantilla de email según el tipo de notificación
+        $template = "Hola {$user['name']},\n\n{$data['message']}";
+        
+        if (!empty($data['data'])) {
+            $template .= "\n\nDetalles adicionales:\n";
+            foreach ($data['data'] as $key => $value) {
+                $template .= "- $key: $value\n";
+            }
+        }
+        
+        return $template;
+    }
+    
+    public function getUnreadCount($userId) {
+        $stmt = $this->conn->prepare("
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE user_id = ?
+            AND is_read = FALSE
+        ");
+        
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn();
     }
 } 

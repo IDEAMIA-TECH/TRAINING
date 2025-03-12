@@ -5,78 +5,44 @@ use Dompdf\Options;
 
 class CertificateManager {
     private $conn;
+    private $outputPath;
+    private $dompdf;
     
-    public function __construct($conn) {
+    public function __construct($conn, $config = []) {
         $this->conn = $conn;
+        $this->outputPath = $config['output_path'] ?? 'certificates/';
+        $this->dompdf = new \Dompdf\Dompdf();
     }
     
     public function generateCertificate($userId, $courseId) {
+        $this->conn->beginTransaction();
+        
         try {
-            $this->conn->beginTransaction();
-            
-            // Verificar si el usuario ha completado el curso
-            $stmt = $this->conn->prepare("
-                SELECT c.*, u.name as student_name, u.email,
-                       i.name as instructor_name
-                FROM courses c
-                JOIN users u ON u.id = ?
-                LEFT JOIN users i ON i.id = c.instructor_id
-                WHERE c.id = ?
-            ");
-            $stmt->execute([$userId, $courseId]);
-            $courseData = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$courseData) {
-                throw new Exception("Curso o usuario no encontrado");
+            // Verificar si ya existe
+            if ($this->certificateExists($userId, $courseId)) {
+                throw new Exception("El certificado ya existe");
             }
             
-            // Verificar si ya existe un certificado
-            $stmt = $this->conn->prepare("
-                SELECT id FROM certificates 
-                WHERE user_id = ? AND course_id = ? AND status = 'active'
-            ");
-            $stmt->execute([$userId, $courseId]);
-            
-            if ($stmt->fetch()) {
-                throw new Exception("Ya existe un certificado activo para este curso");
+            // Verificar finalización del curso
+            if (!$this->hasCompletedCourse($userId, $courseId)) {
+                throw new Exception("El curso no está completado");
             }
             
-            // Obtener plantilla activa
-            $stmt = $this->conn->prepare("
-                SELECT * FROM certificate_templates 
-                WHERE is_active = TRUE 
-                ORDER BY id DESC LIMIT 1
-            ");
-            $stmt->execute();
-            $template = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Obtener datos necesarios
+            $data = $this->gatherCertificateData($userId, $courseId);
             
-            if (!$template) {
-                throw new Exception("No hay plantillas de certificado disponibles");
-            }
+            // Obtener plantilla
+            $template = $this->getDefaultTemplate();
             
-            // Generar número de certificado y código de verificación
+            // Generar número de certificado
             $certificateNumber = $this->generateCertificateNumber();
-            $verificationCode = $this->generateVerificationCode();
             
-            // Preparar datos del certificado
-            $data = [
-                'student_name' => $courseData['student_name'],
-                'course_name' => $courseData['title'],
-                'course_duration' => $courseData['duration'],
-                'issue_date' => date('d/m/Y'),
-                'location' => 'Ciudad, País',
-                'instructor_name' => $courseData['instructor_name'],
-                'logo_url' => BASE_URL . '/assets/img/logo.png',
-                'signature_url' => BASE_URL . '/assets/img/signature.png',
-                'verification_url' => BASE_URL . '/verify/' . $verificationCode,
-                'verification_code' => $verificationCode
-            ];
-            
-            // Insertar certificado
+            // Crear registro
             $stmt = $this->conn->prepare("
                 INSERT INTO certificates (
-                    user_id, course_id, template_id, certificate_number,
-                    verification_code, data
+                    user_id, course_id,
+                    template_id, certificate_number,
+                    completion_date, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?)
             ");
             
@@ -85,11 +51,27 @@ class CertificateManager {
                 $courseId,
                 $template['id'],
                 $certificateNumber,
-                $verificationCode,
+                date('Y-m-d'),
                 json_encode($data)
             ]);
             
             $certificateId = $this->conn->lastInsertId();
+            
+            // Generar PDF
+            $filePath = $this->generatePDF($template, array_merge(
+                $data,
+                ['certificate_number' => $certificateNumber]
+            ));
+            
+            // Actualizar ruta del archivo
+            $stmt = $this->conn->prepare("
+                UPDATE certificates
+                SET file_path = ?,
+                    status = 'generated'
+                WHERE id = ?
+            ");
+            
+            $stmt->execute([$filePath, $certificateId]);
             
             $this->conn->commit();
             return $certificateId;
@@ -100,84 +82,146 @@ class CertificateManager {
         }
     }
     
-    public function generatePDF($certificateId) {
-        // Obtener datos del certificado
+    public function getCertificate($userId, $courseId) {
         $stmt = $this->conn->prepare("
-            SELECT c.*, ct.html_template, ct.css_styles
+            SELECT 
+                c.*,
+                ct.name as template_name,
+                u.name as student_name,
+                co.title as course_name
             FROM certificates c
             JOIN certificate_templates ct ON c.template_id = ct.id
-            WHERE c.id = ?
+            JOIN users u ON c.user_id = u.id
+            JOIN courses co ON c.course_id = co.id
+            WHERE c.user_id = ?
+            AND c.course_id = ?
         ");
-        $stmt->execute([$certificateId]);
-        $certificate = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$certificate) {
-            throw new Exception("Certificado no encontrado");
-        }
-        
-        $data = json_decode($certificate['data'], true);
-        
-        // Reemplazar variables en la plantilla
-        $html = $certificate['html_template'];
-        foreach ($data as $key => $value) {
-            $html = str_replace('{{'.$key.'}}', $value, $html);
-        }
-        
-        // Configurar DOMPDF
-        $options = new Options();
-        $options->set('isHtml5ParserEnabled', true);
-        $options->set('isPhpEnabled', true);
-        
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml('
-            <html>
-            <head>
-                <style>'.$certificate['css_styles'].'</style>
-            </head>
-            <body>'.$html.'</body>
-            </html>
-        ');
-        
-        $dompdf->setPaper('A4', 'landscape');
-        $dompdf->render();
-        
-        return $dompdf->output();
+        $stmt->execute([$userId, $courseId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    private function generateCertificateNumber() {
-        return 'CERT-' . date('Y') . '-' . str_pad(mt_rand(1, 999999), 6, '0', STR_PAD_LEFT);
-    }
-    
-    private function generateVerificationCode() {
-        return bin2hex(random_bytes(16));
-    }
-    
-    public function verifyCertificate($code) {
+    public function verifyCertificate($certificateNumber) {
         $stmt = $this->conn->prepare("
-            SELECT c.*, u.name as student_name, co.title as course_name
+            SELECT 
+                c.*,
+                u.name as student_name,
+                co.title as course_name
             FROM certificates c
             JOIN users u ON c.user_id = u.id
             JOIN courses co ON c.course_id = co.id
-            WHERE c.verification_code = ?
+            WHERE c.certificate_number = ?
+            AND c.status = 'generated'
         ");
-        $stmt->execute([$code]);
-        $certificate = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($certificate) {
-            // Registrar verificación
-            $stmt = $this->conn->prepare("
-                INSERT INTO certificate_verifications (
-                    certificate_id, verifier_ip, verifier_user_agent
-                ) VALUES (?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $certificate['id'],
-                $_SERVER['REMOTE_ADDR'],
-                $_SERVER['HTTP_USER_AGENT']
-            ]);
-        }
+        $stmt->execute([$certificateNumber]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    private function certificateExists($userId, $courseId) {
+        $stmt = $this->conn->prepare("
+            SELECT COUNT(*)
+            FROM certificates
+            WHERE user_id = ?
+            AND course_id = ?
+        ");
         
-        return $certificate;
+        $stmt->execute([$userId, $courseId]);
+        return $stmt->fetchColumn() > 0;
+    }
+    
+    private function hasCompletedCourse($userId, $courseId) {
+        $stmt = $this->conn->prepare("
+            SELECT 
+                (SELECT COUNT(*) FROM lessons WHERE course_id = ?) as total_lessons,
+                COUNT(cl.id) as completed_lessons
+            FROM completed_lessons cl
+            WHERE cl.user_id = ?
+            AND cl.lesson_id IN (SELECT id FROM lessons WHERE course_id = ?)
+        ");
+        
+        $stmt->execute([$courseId, $userId, $courseId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $result['total_lessons'] > 0 && 
+               $result['total_lessons'] == $result['completed_lessons'];
+    }
+    
+    private function gatherCertificateData($userId, $courseId) {
+        $stmt = $this->conn->prepare("
+            SELECT 
+                u.name as student_name,
+                c.title as course_name,
+                c.duration as course_duration,
+                i.name as instructor_name
+            FROM users u
+            JOIN courses c ON c.id = ?
+            LEFT JOIN users i ON c.instructor_id = i.id
+            WHERE u.id = ?
+        ");
+        
+        $stmt->execute([$courseId, $userId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    private function getDefaultTemplate() {
+        $stmt = $this->conn->prepare("
+            SELECT *
+            FROM certificate_templates
+            WHERE is_default = TRUE
+            AND is_active = TRUE
+            LIMIT 1
+        ");
+        
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    private function generateCertificateNumber() {
+        return sprintf(
+            'CERT-%s-%s',
+            date('Ymd'),
+            substr(uniqid(), -8)
+        );
+    }
+    
+    private function generatePDF($template, $data) {
+        // Procesar plantillas
+        $html = $this->processTemplate($template['html_template'], $data);
+        $css = $template['css_template'];
+        
+        // Configurar DOMPDF
+        $this->dompdf->setPaper(
+            $template['page_size'],
+            $template['orientation']
+        );
+        
+        // Generar PDF
+        $this->dompdf->loadHtml("
+            <style>$css</style>
+            $html
+        ");
+        $this->dompdf->render();
+        
+        // Guardar archivo
+        $filename = "certificate_{$data['certificate_number']}.pdf";
+        $filepath = $this->outputPath . $filename;
+        
+        file_put_contents(
+            $filepath,
+            $this->dompdf->output()
+        );
+        
+        return $filepath;
+    }
+    
+    private function processTemplate($template, $data) {
+        return preg_replace_callback(
+            '/\{([^}]+)\}/',
+            function($matches) use ($data) {
+                return $data[$matches[1]] ?? '';
+            },
+            $template
+        );
     }
 } 

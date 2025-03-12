@@ -12,64 +12,107 @@ class PaymentManager {
     public function __construct($conn) {
         $this->conn = $conn;
         
-        // Configurar Stripe
-        $stmt = $this->conn->prepare("
-            SELECT setting_value 
-            FROM payment_settings 
-            WHERE setting_key = 'stripe_secret_key'
-        ");
-        $stmt->execute();
-        $stripe_key = $stmt->fetchColumn();
-        
-        Stripe::setApiKey($stripe_key);
+        // Inicializar Stripe
+        \Stripe\Stripe::setApiKey(STRIPE_SECRET_KEY);
+        $this->stripe = new \Stripe\StripeClient(STRIPE_SECRET_KEY);
     }
     
-    public function createSubscription($userId, $planId) {
+    public function getSubscriptionPlans() {
+        $stmt = $this->conn->prepare("
+            SELECT * FROM subscription_plans 
+            WHERE is_active = TRUE 
+            ORDER BY price ASC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function createCheckoutSession($planId, $userId) {
+        // Obtener información del plan
+        $stmt = $this->conn->prepare("
+            SELECT * FROM subscription_plans WHERE id = ?
+        ");
+        $stmt->execute([$planId]);
+        $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$plan) {
+            throw new Exception("Plan no encontrado");
+        }
+        
+        // Crear sesión de checkout en Stripe
+        $session = \Stripe\Checkout\Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => 'usd',
+                    'product_data' => [
+                        'name' => $plan['name'],
+                        'description' => $plan['description']
+                    ],
+                    'unit_amount' => $plan['price'] * 100 // Convertir a centavos
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'subscription',
+            'success_url' => BASE_URL . '/payments/success.php?session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url' => BASE_URL . '/payments/cancel.php',
+            'customer_email' => $_SESSION['user_email'],
+            'metadata' => [
+                'user_id' => $userId,
+                'plan_id' => $planId
+            ]
+        ]);
+        
+        return $session;
+    }
+    
+    public function processPayment($sessionId) {
         try {
-            $this->conn->beginTransaction();
+            $session = $this->stripe->checkout->sessions->retrieve($sessionId);
             
-            // Obtener información del plan
-            $stmt = $this->conn->prepare("
-                SELECT * FROM subscription_plans WHERE id = ?
-            ");
-            $stmt->execute([$planId]);
-            $plan = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$plan) {
-                throw new Exception("Plan no encontrado");
+            if ($session->payment_status !== 'paid') {
+                throw new Exception("El pago no ha sido completado");
             }
             
-            // Crear suscripción en la base de datos
+            $this->conn->beginTransaction();
+            
+            // Crear suscripción
             $stmt = $this->conn->prepare("
                 INSERT INTO subscriptions (
-                    user_id, plan_id, start_date, end_date
-                ) VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY))
+                    user_id, plan_id, start_date, end_date, auto_renew
+                ) VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? MONTH), TRUE)
             ");
+            
             $stmt->execute([
-                $userId,
-                $planId,
-                $plan['duration']
+                $session->metadata->user_id,
+                $session->metadata->plan_id,
+                $plan['duration_months']
             ]);
             
             $subscriptionId = $this->conn->lastInsertId();
             
-            // Crear transacción pendiente
+            // Registrar transacción
             $stmt = $this->conn->prepare("
                 INSERT INTO transactions (
-                    user_id, subscription_id, amount, currency
-                ) VALUES (?, ?, ?, ?)
+                    user_id, subscription_id, amount, payment_method,
+                    payment_id, status
+                ) VALUES (?, ?, ?, 'stripe', ?, 'completed')
             ");
+            
             $stmt->execute([
-                $userId,
+                $session->metadata->user_id,
                 $subscriptionId,
-                $plan['price'],
-                'USD'
+                $session->amount_total / 100,
+                $session->payment_intent
             ]);
             
             $transactionId = $this->conn->lastInsertId();
             
+            // Generar factura
+            $this->generateInvoice($transactionId);
+            
             $this->conn->commit();
-            return $transactionId;
+            return true;
             
         } catch (Exception $e) {
             $this->conn->rollBack();
@@ -77,191 +120,43 @@ class PaymentManager {
         }
     }
     
-    public function processPayment($transactionId, $paymentMethod) {
-        try {
-            // Obtener información de la transacción
-            $stmt = $this->conn->prepare("
-                SELECT t.*, u.email, u.name
-                FROM transactions t
-                JOIN users u ON t.user_id = u.id
-                WHERE t.id = ?
-            ");
-            $stmt->execute([$transactionId]);
-            $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$transaction) {
-                throw new Exception("Transacción no encontrada");
-            }
-            
-            // Procesar pago según el método
-            switch ($paymentMethod) {
-                case 'stripe':
-                    $paymentId = $this->processStripePayment($transaction);
-                    break;
-                case 'paypal':
-                    $paymentId = $this->processPayPalPayment($transaction);
-                    break;
-                default:
-                    throw new Exception("Método de pago no soportado");
-            }
-            
-            // Actualizar transacción
-            $stmt = $this->conn->prepare("
-                UPDATE transactions
-                SET status = 'completed',
-                    payment_method = ?,
-                    payment_id = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$paymentMethod, $paymentId, $transactionId]);
-            
-            // Generar factura
-            $this->generateInvoice($transactionId);
-            
-            return true;
-            
-        } catch (Exception $e) {
-            // Registrar error
-            $stmt = $this->conn->prepare("
-                UPDATE transactions
-                SET status = 'failed',
-                    error_message = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$e->getMessage(), $transactionId]);
-            
-            throw $e;
-        }
-    }
-    
-    private function processStripePayment($transaction) {
-        try {
-            // Crear cliente en Stripe si no existe
-            $stmt = $this->conn->prepare("
-                SELECT stripe_customer_id 
-                FROM users 
-                WHERE id = ?
-            ");
-            $stmt->execute([$transaction['user_id']]);
-            $stripeCustomerId = $stmt->fetchColumn();
-            
-            if (!$stripeCustomerId) {
-                $customer = Customer::create([
-                    'email' => $transaction['email'],
-                    'name' => $transaction['name']
-                ]);
-                
-                $stmt = $this->conn->prepare("
-                    UPDATE users 
-                    SET stripe_customer_id = ? 
-                    WHERE id = ?
-                ");
-                $stmt->execute([$customer->id, $transaction['user_id']]);
-                
-                $stripeCustomerId = $customer->id;
-            }
-            
-            // Crear intento de pago
-            $paymentIntent = PaymentIntent::create([
-                'amount' => $transaction['amount'] * 100, // Convertir a centavos
-                'currency' => $transaction['currency'],
-                'customer' => $stripeCustomerId,
-                'description' => 'Suscripción a plan de cursos'
-            ]);
-            
-            return $paymentIntent->id;
-            
-        } catch (Exception $e) {
-            throw new Exception("Error al procesar pago con Stripe: " . $e->getMessage());
-        }
-    }
-    
-    private function processPayPalPayment($transaction) {
-        // Implementar integración con PayPal
-        throw new Exception("Pago con PayPal no implementado");
-    }
-    
     private function generateInvoice($transactionId) {
-        try {
-            // Obtener información de la transacción
-            $stmt = $this->conn->prepare("
-                SELECT t.*, u.*, sp.name as plan_name
-                FROM transactions t
-                JOIN users u ON t.user_id = u.id
-                LEFT JOIN subscriptions s ON t.subscription_id = s.id
-                LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-                WHERE t.id = ?
-            ");
-            $stmt->execute([$transactionId]);
-            $data = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Obtener siguiente número de factura
-            $stmt = $this->conn->prepare("
-                SELECT setting_value 
-                FROM payment_settings 
-                WHERE setting_key = 'invoice_prefix'
-            ");
-            $stmt->execute();
-            $prefix = $stmt->fetchColumn();
-            
-            $stmt = $this->conn->prepare("
-                SELECT COUNT(*) + 1 FROM invoices
-            ");
-            $stmt->execute();
-            $number = $stmt->fetchColumn();
-            
-            $invoiceNumber = $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
-            
-            // Crear factura
-            $stmt = $this->conn->prepare("
-                INSERT INTO invoices (
-                    transaction_id, invoice_number, user_id,
-                    billing_name, billing_email, billing_address,
-                    subtotal, tax_amount, total_amount,
-                    status, issued_date, due_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY))
-            ");
-            
-            $taxRate = 0.16; // Obtener de configuración
-            $subtotal = $data['amount'];
-            $taxAmount = $subtotal * $taxRate;
-            $total = $subtotal + $taxAmount;
-            
-            $stmt->execute([
-                $transactionId,
-                $invoiceNumber,
-                $data['user_id'],
-                $data['name'],
-                $data['email'],
-                $data['address'],
-                $subtotal,
-                $taxAmount,
-                $total
-            ]);
-            
-            $invoiceId = $this->conn->lastInsertId();
-            
-            // Agregar items a la factura
-            $stmt = $this->conn->prepare("
-                INSERT INTO invoice_items (
-                    invoice_id, description, quantity,
-                    unit_price, tax_rate, total_amount
-                ) VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $invoiceId,
-                "Suscripción - " . $data['plan_name'],
-                1,
-                $subtotal,
-                $taxRate,
-                $total
-            ]);
-            
-            return $invoiceId;
-            
-        } catch (Exception $e) {
-            throw new Exception("Error al generar factura: " . $e->getMessage());
-        }
+        // Obtener datos de la transacción
+        $stmt = $this->conn->prepare("
+            SELECT t.*, u.name, u.email
+            FROM transactions t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.id = ?
+        ");
+        $stmt->execute([$transactionId]);
+        $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Calcular impuestos
+        $subtotal = $transaction['amount'];
+        $tax = $subtotal * 0.16; // 16% de IVA
+        $total = $subtotal + $tax;
+        
+        // Generar número de factura
+        $invoiceNumber = 'INV-' . date('Y') . str_pad($transactionId, 6, '0', STR_PAD_LEFT);
+        
+        // Guardar factura
+        $stmt = $this->conn->prepare("
+            INSERT INTO invoices (
+                transaction_id, invoice_number, billing_name,
+                billing_email, subtotal, tax, total
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $transactionId,
+            $invoiceNumber,
+            $transaction['name'],
+            $transaction['email'],
+            $subtotal,
+            $tax,
+            $total
+        ]);
+        
+        return $this->conn->lastInsertId();
     }
 } 
