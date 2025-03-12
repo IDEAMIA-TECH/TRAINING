@@ -737,7 +737,12 @@ return [
                             <li>Accede al panel de administración</li>
                             <li>Configura los métodos de pago y correo</li>
                         </ol>
-                        <a href="login.php" class="btn">Ir al Login</a>
+                        <?php
+                        $base_url = rtrim($_SESSION['site_config']['url'], '/');
+                        // Determinar la ubicación correcta del archivo login.php
+                        $login_path = file_exists('auth/login.php') ? 'auth/login.php' : 'login.php';
+                        ?>
+                        <a href="<?php echo $base_url . '/' . $login_path; ?>" class="btn">Ir al Login</a>
                     </div>
                 <?php endif; ?>
                 <?php break;
